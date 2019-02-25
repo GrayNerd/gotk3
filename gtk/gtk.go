@@ -56,9 +56,9 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/gotk3/gotk3/cairo"
-	"github.com/gotk3/gotk3/gdk"
-	"github.com/gotk3/gotk3/glib"
+	"github.com/graynerd/gotk3/cairo"
+	"github.com/graynerd/gotk3/gdk"
+	"github.com/graynerd/gotk3/glib"
 )
 
 func init() {
@@ -2038,6 +2038,44 @@ func CellRendererPixbufNew() (*CellRendererPixbuf, error) {
 	}
 	obj := glib.Take(unsafe.Pointer(c))
 	return wrapCellRendererPixbuf(obj), nil
+}
+
+/*
+ * GtkCellRendererProgress
+ */
+
+// CellRendererProgress is a representation of GTK's GtkCellRendererProgress.
+type CellRendererProgress struct {
+	CellRenderer
+}
+
+// native returns a pointer to the underlying GtkCellRendererProgress.
+func (v *CellRendererProgress) native() *C.GtkCellRendererProgress {
+	if v == nil || v.GObject == nil {
+		return nil
+	}
+	p := unsafe.Pointer(v.GObject)
+	return C.toGtkCellRendererProgress(p)
+}
+
+func marshalCellRendererProgress(p uintptr) (interface{}, error) {
+	c := C.g_value_get_object((*C.GValue)(unsafe.Pointer(p)))
+	obj := glib.Take(unsafe.Pointer(c))
+	return wrapCellRendererProgress(obj), nil
+}
+
+func wrapCellRendererProgress(obj *glib.Object) *CellRendererProgress {
+	return &CellRendererProgress{CellRenderer{glib.InitiallyUnowned{obj}}}
+}
+
+// CellRendererProgressNew is a wrapper around gtk_cell_renderer_progress_new().
+func CellRendererProgressNew() (*CellRendererProgress, error) {
+	c := C.gtk_cell_renderer_progress_new()
+	if c == nil {
+		return nil, nilPtrErr
+	}
+	obj := glib.Take(unsafe.Pointer(c))
+	return wrapCellRendererProgress(obj), nil
 }
 
 /*
