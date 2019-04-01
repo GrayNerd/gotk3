@@ -14,6 +14,10 @@ import (
 	"github.com/graynerd/gotk3/glib"
 )
 
+const (
+	BUTTONBOX_EXPAND ButtonBoxStyle = C.GTK_BUTTONBOX_EXPAND
+)
+
 func init() {
 	tm := []glib.TypeMarshaler{
 		// Objects/Interfaces

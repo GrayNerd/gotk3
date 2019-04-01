@@ -114,6 +114,7 @@ func init() {
 		{glib.Type(C.gtk_bin_get_type()), marshalBin},
 		{glib.Type(C.gtk_builder_get_type()), marshalBuilder},
 		{glib.Type(C.gtk_button_get_type()), marshalButton},
+		{glib.Type(C.gtk_button_box_get_type()), marshalButtonBox},
 		{glib.Type(C.gtk_box_get_type()), marshalBox},
 		{glib.Type(C.gtk_calendar_get_type()), marshalCalendar},
 		{glib.Type(C.gtk_cell_layout_get_type()), marshalCellLayout},
@@ -625,6 +626,16 @@ func marshalPolicyType(p uintptr) (interface{}, error) {
 	c := C.g_value_get_enum((*C.GValue)(unsafe.Pointer(p)))
 	return PolicyType(c), nil
 }
+
+// TreeViewGridLine is a representation of GTK's GtkTreeViewGridLine.
+type TreeViewGridLines int
+
+const (
+	TREE_VIEW_GRID_LINES_NONE       TreeViewGridLines = C.GTK_TREE_VIEW_GRID_LINES_NONE
+	TREE_VIEW_GRID_LINES_HORIZONTAL TreeViewGridLines = C.GTK_TREE_VIEW_GRID_LINES_HORIZONTAL
+	TREE_VIEW_GRID_LINES_VERTICAL   TreeViewGridLines = C.GTK_TREE_VIEW_GRID_LINES_VERTICAL
+	TREE_VIEW_GRID_LINES_BOTH       TreeViewGridLines = C.GTK_TREE_VIEW_GRID_LINES_BOTH
+)
 
 // PositionType is a representation of GTK's GtkPositionType.
 type PositionType int
@@ -6941,8 +6952,22 @@ func GetData(pointer uintptr) (data []byte) {
 	return byteData
 }
 
+//for "drag-data-get"
+func SetData(pointer uintptr, atom gdk.Atom, data []byte) {
+	c := (*C.GValue)(unsafe.Pointer(pointer))
+	p := (*C.GtkSelectionData)(unsafe.Pointer(c))
+	C.gtk_selection_data_set(p, C.GdkAtom(unsafe.Pointer(atom)), C.gint(8), (*C.guchar)(unsafe.Pointer(&data[0])), C.gint(len(data)))
+}
+
 func (v *SelectionData) free() {
 	C.gtk_selection_data_free(v.native())
+}
+
+//for "drag-begin" event
+func DragSetIconPixbuf(context *gdk.DragContext, pixbuf *gdk.Pixbuf, hot_x int, hot_y int) {
+	ctx := unsafe.Pointer(context.Native())
+	pix := unsafe.Pointer(pixbuf.Native())
+	C.gtk_drag_set_icon_pixbuf((*C.GdkDragContext)(ctx), (*C.GdkPixbuf)(pix), C.gint(hot_x), C.gint(hot_y))
 }
 
 /*
@@ -7585,6 +7610,11 @@ func (v *TextBuffer) ApplyTagByName(name string, start, end *TextIter) {
 		(*C.GtkTextIter)(start), (*C.GtkTextIter)(end))
 }
 
+// SelectRange is a wrapper around gtk_text_buffer_select_range.
+func (v *TextBuffer) SelectRange(start, end *TextIter) {
+	C.gtk_text_buffer_select_range(v.native(), (*C.GtkTextIter)(start), (*C.GtkTextIter)(end))
+}
+
 // CreateChildAnchor() is a wrapper around gtk_text_buffer_create_child_anchor().
 // Since it copies garbage from the stack into the padding bytes of iter,
 // iter can't be reliably reused after this call unless GODEBUG=cgocheck=0.
@@ -7667,6 +7697,12 @@ func (v *TextBuffer) Insert(iter *TextIter, text string) {
 	cstr := C.CString(text)
 	defer C.free(unsafe.Pointer(cstr))
 	C.gtk_text_buffer_insert(v.native(), (*C.GtkTextIter)(iter), (*C.gchar)(cstr), C.gint(len(text)))
+}
+
+// InsertPixbuf() is a wrapper around gtk_text_buffer_insert_pixbuf().
+func (v *TextBuffer) InsertPixbuf(iter *TextIter, pixbuf *gdk.Pixbuf) {
+	C.gtk_text_buffer_insert_pixbuf(v.native(), (*C.GtkTextIter)(iter),
+		(*C.GdkPixbuf)(unsafe.Pointer(pixbuf.Native())))
 }
 
 // InsertAtCursor() is a wrapper around gtk_text_buffer_insert_at_cursor().
@@ -8500,6 +8536,14 @@ func (v *TreeModelFilter) SetVisibleColumn(column int) {
 	C.gtk_tree_model_filter_set_visible_column(v.native(), C.gint(column))
 }
 
+// ConvertIterToChildIter is a wrapper around gtk_tree_model_filter_convert_child_iter_to_iter().
+func (v *TreeModelFilter) ConvertIterToChildIter(filterIter *TreeIter) *TreeIter {
+	var iter C.GtkTreeIter
+	C.gtk_tree_model_filter_convert_iter_to_child_iter(v.native(), &iter, filterIter.native())
+	t := &TreeIter{iter}
+	return t
+}
+
 /*
  * GtkTreePath
  */
@@ -8678,6 +8722,64 @@ func (v *TreeSelection) SelectAll() {
 // UnelectAll() is a wrapper around gtk_tree_selection_unselect_all()
 func (v *TreeSelection) UnselectAll() {
 	C.gtk_tree_selection_unselect_all(v.native())
+}
+
+/*
+ * GtkTreeRowReference
+ */
+
+// TreeRowReference is a representation of GTK's GtkTreeRowReference.
+type TreeRowReference struct {
+	GtkTreeRowReference *C.GtkTreeRowReference
+}
+
+func (v *TreeRowReference) native() *C.GtkTreeRowReference {
+	if v == nil {
+		return nil
+	}
+	return v.GtkTreeRowReference
+}
+
+func (v *TreeRowReference) free() {
+	C.gtk_tree_row_reference_free(v.native())
+}
+
+// TreeRowReferenceNew is a wrapper around gtk_tree_row_reference_new().
+func TreeRowReferenceNew(model *TreeModel, path *TreePath) (*TreeRowReference, error) {
+	c := C.gtk_tree_row_reference_new(model.native(), path.native())
+	if c == nil {
+		return nil, nilPtrErr
+	}
+	r := &TreeRowReference{c}
+	runtime.SetFinalizer(r, (*TreeRowReference).free)
+	return r, nil
+}
+
+// GetPath is a wrapper around gtk_tree_row_reference_get_path.
+func (v *TreeRowReference) GetPath() *TreePath {
+	c := C.gtk_tree_row_reference_get_path(v.native())
+	if c == nil {
+		return nil
+	}
+	t := &TreePath{c}
+	runtime.SetFinalizer(t, (*TreePath).free)
+	return t
+}
+
+// GetModel is a wrapper around gtk_tree_row_reference_get_path.
+func (v *TreeRowReference) GetModel() ITreeModel {
+	c := C.gtk_tree_row_reference_get_model(v.native())
+	if c == nil {
+		return nil
+	}
+	m := wrapTreeModel(glib.Take(unsafe.Pointer(c)))
+	return m
+}
+
+// Valid is a wrapper around gtk_tree_row_reference_valid.
+func (v *TreeRowReference) Valid() bool {
+	c := C.gtk_tree_row_reference_valid(v.native())
+	return gobool(c)
 }
 
 /*
