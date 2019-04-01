@@ -754,6 +754,12 @@ toGtkCellRendererProgress(void *p)
 	return (GTK_CELL_RENDERER_PROGRESS(p));
 }
 
+static GtkCellRendererCombo *
+toGtkCellRendererCombo(void *p)
+{
+	return (GTK_CELL_RENDERER_COMBO(p));
+}
+
 static GType *
 alloc_types(int n) {
 	return ((GType *)g_new0(GType, n));

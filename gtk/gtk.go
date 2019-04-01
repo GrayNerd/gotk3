@@ -122,6 +122,8 @@ func init() {
 		{glib.Type(C.gtk_cell_renderer_pixbuf_get_type()), marshalCellRendererPixbuf},
 		{glib.Type(C.gtk_cell_renderer_text_get_type()), marshalCellRendererText},
 		{glib.Type(C.gtk_cell_renderer_toggle_get_type()), marshalCellRendererToggle},
+		{glib.Type(C.gtk_cell_renderer_progress_get_type()), marshalCellRendererProgress},
+		{glib.Type(C.gtk_cell_renderer_combo_get_type()), marshalCellRendererCombo},
 		{glib.Type(C.gtk_check_button_get_type()), marshalCheckButton},
 		{glib.Type(C.gtk_check_menu_item_get_type()), marshalCheckMenuItem},
 		{glib.Type(C.gtk_clipboard_get_type()), marshalClipboard},
@@ -2076,6 +2078,44 @@ func CellRendererProgressNew() (*CellRendererProgress, error) {
 	}
 	obj := glib.Take(unsafe.Pointer(c))
 	return wrapCellRendererProgress(obj), nil
+}
+
+/*
+ * GtkCellRendererCombo
+ */
+
+// CellRendererCombo is a representation of GTK's GtkCellRendererCombo.
+type CellRendererCombo struct {
+	CellRendererText
+}
+
+// native returns a pointer to the underlying GtkCellRendererCombo.
+func (v *CellRendererCombo) native() *C.GtkCellRendererCombo {
+	if v == nil || v.GObject == nil {
+		return nil
+	}
+	p := unsafe.Pointer(v.GObject)
+	return C.toGtkCellRendererCombo(p)
+}
+
+func marshalCellRendererCombo(p uintptr) (interface{}, error) {
+	c := C.g_value_get_object((*C.GValue)(unsafe.Pointer(p)))
+	obj := glib.Take(unsafe.Pointer(c))
+	return wrapCellRendererCombo(obj), nil
+}
+
+func wrapCellRendererCombo(obj *glib.Object) *CellRendererCombo {
+	return &CellRendererCombo{CellRendererText{CellRenderer{glib.InitiallyUnowned{obj}}}}
+}
+
+// CellRendererComboNew is a wrapper around gtk_cell_renderer_combo_new().
+func CellRendererComboNew() (*CellRendererCombo, error) {
+	c := C.gtk_cell_renderer_combo_new()
+	if c == nil {
+		return nil, nilPtrErr
+	}
+	obj := glib.Take(unsafe.Pointer(c))
+	return wrapCellRendererCombo(obj), nil
 }
 
 /*
@@ -8893,6 +8933,8 @@ var WrapMap = map[string]WrapFn{
 	"GtkCellRendererPixbuf":  wrapCellRendererPixbuf,
 	"GtkCellRendererText":    wrapCellRendererText,
 	"GtkCellRendererToggle":  wrapCellRendererToggle,
+	"GtkCellRendererProgress":wrapCellRendererProgress,
+	"GtkCellRendererCombo":	  wrapCellRendererCombo,
 	"GtkCheckButton":         wrapCheckButton,
 	"GtkCheckMenuItem":       wrapCheckMenuItem,
 	"GtkClipboard":           wrapClipboard,
