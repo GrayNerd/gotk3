@@ -226,7 +226,7 @@ func goMarshal(closure *C.GClosure, retValue *C.GValue,
 
 // gValueSlice converts a C array of GValues to a Go slice.
 func gValueSlice(values *C.GValue, nValues int) (slice []C.GValue) {
-	header := (*reflect.SliceHeader)((unsafe.Pointer(&slice)))
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&slice))
 	header.Cap = nValues
 	header.Len = nValues
 	header.Data = uintptr(unsafe.Pointer(values))

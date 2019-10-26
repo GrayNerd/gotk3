@@ -56,9 +56,9 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/graynerd/gotk3/cairo"
-	"github.com/graynerd/gotk3/gdk"
-	"github.com/graynerd/gotk3/glib"
+	"github.com/gotk3/gotk3/cairo"
+	"github.com/gotk3/gotk3/gdk"
+	"github.com/gotk3/gotk3/glib"
 )
 
 func init() {
@@ -122,6 +122,7 @@ func init() {
 		{glib.Type(C.gtk_cell_renderer_pixbuf_get_type()), marshalCellRendererPixbuf},
 		{glib.Type(C.gtk_cell_renderer_text_get_type()), marshalCellRendererText},
 		{glib.Type(C.gtk_cell_renderer_toggle_get_type()), marshalCellRendererToggle},
+		{glib.Type(C.gtk_cell_renderer_progress_get_type()), marshalCellRendererProgress},
 		{glib.Type(C.gtk_check_button_get_type()), marshalCheckButton},
 		{glib.Type(C.gtk_check_menu_item_get_type()), marshalCheckMenuItem},
 		{glib.Type(C.gtk_clipboard_get_type()), marshalClipboard},
@@ -5014,8 +5015,8 @@ func (v *ListStore) InsertWithValues(iter *TreeIter, position int, inColumns []i
 		var cvp *C.GValue = (*C.GValue)(gv.Native())
 		cValues = append(cValues, *cvp)
 	}
-	var cColumnsPointer *C.gint = &cColumns[0]
-	var cValuesPointer *C.GValue = &cValues[0]
+	var cColumnsPointer = &cColumns[0]
+	var cValuesPointer = &cValues[0]
 
 	C.gtk_list_store_insert_with_valuesv(v.native(), iter.native(), C.gint(position), cColumnsPointer, cValuesPointer, C.gint(length))
 
