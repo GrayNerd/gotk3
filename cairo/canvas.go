@@ -183,7 +183,7 @@ func (v *Context) GetDash() (dashes []float64, offset float64) {
 	cdashes := (*C.double)(C.calloc(8, C.size_t(dashCount)))
 	var coffset C.double
 	C.cairo_get_dash(v.native(), cdashes, &coffset)
-	header := (*reflect.SliceHeader)((unsafe.Pointer(&dashes)))
+	header := (*reflect.SliceHeader)(unsafe.Pointer(&dashes))
 	header.Data = uintptr(unsafe.Pointer(cdashes))
 	header.Len = dashCount
 	header.Cap = dashCount

@@ -56,9 +56,9 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/graynerd/gotk3/cairo"
-	"github.com/graynerd/gotk3/gdk"
-	"github.com/graynerd/gotk3/glib"
+	"github.com/gotk3/gotk3/cairo"
+	"github.com/gotk3/gotk3/gdk"
+	"github.com/gotk3/gotk3/glib"
 )
 
 func init() {
@@ -5066,8 +5066,8 @@ func (v *ListStore) InsertWithValues(iter *TreeIter, position int, inColumns []i
 		var cvp *C.GValue = (*C.GValue)(gv.Native())
 		cValues = append(cValues, *cvp)
 	}
-	var cColumnsPointer *C.gint = &cColumns[0]
-	var cValuesPointer *C.GValue = &cValues[0]
+	var cColumnsPointer = &cColumns[0]
+	var cValuesPointer = &cValues[0]
 
 	C.gtk_list_store_insert_with_valuesv(v.native(), iter.native(), C.gint(position), cColumnsPointer, cValuesPointer, C.gint(length))
 
