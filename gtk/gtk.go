@@ -114,6 +114,7 @@ func init() {
 		{glib.Type(C.gtk_bin_get_type()), marshalBin},
 		{glib.Type(C.gtk_builder_get_type()), marshalBuilder},
 		{glib.Type(C.gtk_button_get_type()), marshalButton},
+		{glib.Type(C.gtk_button_box_get_type()), marshalButtonBox},
 		{glib.Type(C.gtk_box_get_type()), marshalBox},
 		{glib.Type(C.gtk_calendar_get_type()), marshalCalendar},
 		{glib.Type(C.gtk_cell_layout_get_type()), marshalCellLayout},
@@ -123,6 +124,7 @@ func init() {
 		{glib.Type(C.gtk_cell_renderer_text_get_type()), marshalCellRendererText},
 		{glib.Type(C.gtk_cell_renderer_toggle_get_type()), marshalCellRendererToggle},
 		{glib.Type(C.gtk_cell_renderer_progress_get_type()), marshalCellRendererProgress},
+		{glib.Type(C.gtk_cell_renderer_combo_get_type()), marshalCellRendererCombo},
 		{glib.Type(C.gtk_check_button_get_type()), marshalCheckButton},
 		{glib.Type(C.gtk_check_menu_item_get_type()), marshalCheckMenuItem},
 		{glib.Type(C.gtk_clipboard_get_type()), marshalClipboard},
@@ -183,6 +185,7 @@ func init() {
 		{glib.Type(C.gtk_toggle_button_get_type()), marshalToggleButton},
 		{glib.Type(C.gtk_toolbar_get_type()), marshalToolbar},
 		{glib.Type(C.gtk_tool_button_get_type()), marshalToolButton},
+		{glib.Type(C.gtk_toggle_tool_button_get_type()), marshalToggleToolButton},
 		{glib.Type(C.gtk_tool_item_get_type()), marshalToolItem},
 		{glib.Type(C.gtk_tooltip_get_type()), marshalTooltip},
 		{glib.Type(C.gtk_tree_model_get_type()), marshalTreeModel},
@@ -624,6 +627,16 @@ func marshalPolicyType(p uintptr) (interface{}, error) {
 	c := C.g_value_get_enum((*C.GValue)(unsafe.Pointer(p)))
 	return PolicyType(c), nil
 }
+
+// TreeViewGridLine is a representation of GTK's GtkTreeViewGridLine.
+type TreeViewGridLines int
+
+const (
+	TREE_VIEW_GRID_LINES_NONE       TreeViewGridLines = C.GTK_TREE_VIEW_GRID_LINES_NONE
+	TREE_VIEW_GRID_LINES_HORIZONTAL TreeViewGridLines = C.GTK_TREE_VIEW_GRID_LINES_HORIZONTAL
+	TREE_VIEW_GRID_LINES_VERTICAL   TreeViewGridLines = C.GTK_TREE_VIEW_GRID_LINES_VERTICAL
+	TREE_VIEW_GRID_LINES_BOTH       TreeViewGridLines = C.GTK_TREE_VIEW_GRID_LINES_BOTH
+)
 
 // PositionType is a representation of GTK's GtkPositionType.
 type PositionType int
@@ -2077,6 +2090,44 @@ func CellRendererProgressNew() (*CellRendererProgress, error) {
 	}
 	obj := glib.Take(unsafe.Pointer(c))
 	return wrapCellRendererProgress(obj), nil
+}
+
+/*
+ * GtkCellRendererCombo
+ */
+
+// CellRendererCombo is a representation of GTK's GtkCellRendererCombo.
+type CellRendererCombo struct {
+	CellRendererText
+}
+
+// native returns a pointer to the underlying GtkCellRendererCombo.
+func (v *CellRendererCombo) native() *C.GtkCellRendererCombo {
+	if v == nil || v.GObject == nil {
+		return nil
+	}
+	p := unsafe.Pointer(v.GObject)
+	return C.toGtkCellRendererCombo(p)
+}
+
+func marshalCellRendererCombo(p uintptr) (interface{}, error) {
+	c := C.g_value_get_object((*C.GValue)(unsafe.Pointer(p)))
+	obj := glib.Take(unsafe.Pointer(c))
+	return wrapCellRendererCombo(obj), nil
+}
+
+func wrapCellRendererCombo(obj *glib.Object) *CellRendererCombo {
+	return &CellRendererCombo{CellRendererText{CellRenderer{glib.InitiallyUnowned{obj}}}}
+}
+
+// CellRendererComboNew is a wrapper around gtk_cell_renderer_combo_new().
+func CellRendererComboNew() (*CellRendererCombo, error) {
+	c := C.gtk_cell_renderer_combo_new()
+	if c == nil {
+		return nil, nilPtrErr
+	}
+	obj := glib.Take(unsafe.Pointer(c))
+	return wrapCellRendererCombo(obj), nil
 }
 
 /*
@@ -6902,8 +6953,22 @@ func GetData(pointer uintptr) (data []byte) {
 	return byteData
 }
 
+//for "drag-data-get"
+func SetData(pointer uintptr, atom gdk.Atom, data []byte) {
+	c := (*C.GValue)(unsafe.Pointer(pointer))
+	p := (*C.GtkSelectionData)(unsafe.Pointer(c))
+	C.gtk_selection_data_set(p, C.GdkAtom(unsafe.Pointer(atom)), C.gint(8), (*C.guchar)(unsafe.Pointer(&data[0])), C.gint(len(data)))
+}
+
 func (v *SelectionData) free() {
 	C.gtk_selection_data_free(v.native())
+}
+
+//for "drag-begin" event
+func DragSetIconPixbuf(context *gdk.DragContext, pixbuf *gdk.Pixbuf, hot_x int, hot_y int) {
+	ctx := unsafe.Pointer(context.Native())
+	pix := unsafe.Pointer(pixbuf.Native())
+	C.gtk_drag_set_icon_pixbuf((*C.GdkDragContext)(ctx), (*C.GdkPixbuf)(pix), C.gint(hot_x), C.gint(hot_y))
 }
 
 /*
@@ -7546,6 +7611,11 @@ func (v *TextBuffer) ApplyTagByName(name string, start, end *TextIter) {
 		(*C.GtkTextIter)(start), (*C.GtkTextIter)(end))
 }
 
+// SelectRange is a wrapper around gtk_text_buffer_select_range.
+func (v *TextBuffer) SelectRange(start, end *TextIter) {
+	C.gtk_text_buffer_select_range(v.native(), (*C.GtkTextIter)(start), (*C.GtkTextIter)(end))
+}
+
 // CreateChildAnchor() is a wrapper around gtk_text_buffer_create_child_anchor().
 // Since it copies garbage from the stack into the padding bytes of iter,
 // iter can't be reliably reused after this call unless GODEBUG=cgocheck=0.
@@ -7628,6 +7698,12 @@ func (v *TextBuffer) Insert(iter *TextIter, text string) {
 	cstr := C.CString(text)
 	defer C.free(unsafe.Pointer(cstr))
 	C.gtk_text_buffer_insert(v.native(), (*C.GtkTextIter)(iter), (*C.gchar)(cstr), C.gint(len(text)))
+}
+
+// InsertPixbuf() is a wrapper around gtk_text_buffer_insert_pixbuf().
+func (v *TextBuffer) InsertPixbuf(iter *TextIter, pixbuf *gdk.Pixbuf) {
+	C.gtk_text_buffer_insert_pixbuf(v.native(), (*C.GtkTextIter)(iter),
+		(*C.GdkPixbuf)(unsafe.Pointer(pixbuf.Native())))
 }
 
 // InsertAtCursor() is a wrapper around gtk_text_buffer_insert_at_cursor().
@@ -7996,6 +8072,55 @@ func (v *ToolButton) GetLabelWidget() *Widget {
 		return nil
 	}
 	return wrapWidget(glib.Take(unsafe.Pointer(c)))
+}
+
+/*
+ * GtkToggleToolButton
+ */
+
+// ToggleToolButton is a representation of GTK's GtkToggleToolButton.
+type ToggleToolButton struct {
+	ToolButton
+}
+
+// native returns a pointer to the underlying GtkToggleToolButton.
+func (v *ToggleToolButton) native() *C.GtkToggleToolButton {
+	if v == nil || v.GObject == nil {
+		return nil
+	}
+	p := unsafe.Pointer(v.GObject)
+	return C.toGtkToggleToolButton(p)
+}
+
+func marshalToggleToolButton(p uintptr) (interface{}, error) {
+	c := C.g_value_get_object((*C.GValue)(unsafe.Pointer(p)))
+	obj := glib.Take(unsafe.Pointer(c))
+	return wrapToggleToolButton(obj), nil
+}
+
+func wrapToggleToolButton(obj *glib.Object) *ToggleToolButton {
+	return &ToggleToolButton{ToolButton{ToolItem{Bin{Container{Widget{
+		glib.InitiallyUnowned{obj}}}}}}}
+}
+
+// ToggleToolButtonNew is a wrapper around gtk_toggle_tool_button_new().
+func ToggleToolButtonNew() (*ToggleToolButton, error) {
+	c := C.gtk_toggle_tool_button_new()
+	if c == nil {
+		return nil, nilPtrErr
+	}
+	return wrapToggleToolButton(glib.Take(unsafe.Pointer(c))), nil
+}
+
+// GetActive is a wrapper around gtk_toggle_tool_button_get_active().
+func (v *ToggleToolButton) GetActive() bool {
+	c := C.gtk_toggle_tool_button_get_active(v.native())
+	return gobool(c)
+}
+
+// SetActive is a wrapper around gtk_toggle_tool_button_set_active().
+func (v *ToggleToolButton) SetActive(isActive bool) {
+	C.gtk_toggle_tool_button_set_active(v.native(), gbool(isActive))
 }
 
 /*
@@ -8461,6 +8586,14 @@ func (v *TreeModelFilter) SetVisibleColumn(column int) {
 	C.gtk_tree_model_filter_set_visible_column(v.native(), C.gint(column))
 }
 
+// ConvertIterToChildIter is a wrapper around gtk_tree_model_filter_convert_child_iter_to_iter().
+func (v *TreeModelFilter) ConvertIterToChildIter(filterIter *TreeIter) *TreeIter {
+	var iter C.GtkTreeIter
+	C.gtk_tree_model_filter_convert_iter_to_child_iter(v.native(), &iter, filterIter.native())
+	t := &TreeIter{iter}
+	return t
+}
+
 /*
  * GtkTreePath
  */
@@ -8639,6 +8772,64 @@ func (v *TreeSelection) SelectAll() {
 // UnelectAll() is a wrapper around gtk_tree_selection_unselect_all()
 func (v *TreeSelection) UnselectAll() {
 	C.gtk_tree_selection_unselect_all(v.native())
+}
+
+/*
+ * GtkTreeRowReference
+ */
+
+// TreeRowReference is a representation of GTK's GtkTreeRowReference.
+type TreeRowReference struct {
+	GtkTreeRowReference *C.GtkTreeRowReference
+}
+
+func (v *TreeRowReference) native() *C.GtkTreeRowReference {
+	if v == nil {
+		return nil
+	}
+	return v.GtkTreeRowReference
+}
+
+func (v *TreeRowReference) free() {
+	C.gtk_tree_row_reference_free(v.native())
+}
+
+// TreeRowReferenceNew is a wrapper around gtk_tree_row_reference_new().
+func TreeRowReferenceNew(model *TreeModel, path *TreePath) (*TreeRowReference, error) {
+	c := C.gtk_tree_row_reference_new(model.native(), path.native())
+	if c == nil {
+		return nil, nilPtrErr
+	}
+	r := &TreeRowReference{c}
+	runtime.SetFinalizer(r, (*TreeRowReference).free)
+	return r, nil
+}
+
+// GetPath is a wrapper around gtk_tree_row_reference_get_path.
+func (v *TreeRowReference) GetPath() *TreePath {
+	c := C.gtk_tree_row_reference_get_path(v.native())
+	if c == nil {
+		return nil
+	}
+	t := &TreePath{c}
+	runtime.SetFinalizer(t, (*TreePath).free)
+	return t
+}
+
+// GetModel is a wrapper around gtk_tree_row_reference_get_path.
+func (v *TreeRowReference) GetModel() ITreeModel {
+	c := C.gtk_tree_row_reference_get_model(v.native())
+	if c == nil {
+		return nil
+	}
+	m := wrapTreeModel(glib.Take(unsafe.Pointer(c)))
+	return m
+}
+
+// Valid is a wrapper around gtk_tree_row_reference_valid.
+func (v *TreeRowReference) Valid() bool {
+	c := C.gtk_tree_row_reference_valid(v.native())
+	return gobool(c)
 }
 
 /*
@@ -8894,6 +9085,8 @@ var WrapMap = map[string]WrapFn{
 	"GtkCellRendererPixbuf":  wrapCellRendererPixbuf,
 	"GtkCellRendererText":    wrapCellRendererText,
 	"GtkCellRendererToggle":  wrapCellRendererToggle,
+	"GtkCellRendererProgress":wrapCellRendererProgress,
+	"GtkCellRendererCombo":	  wrapCellRendererCombo,
 	"GtkCheckButton":         wrapCheckButton,
 	"GtkCheckMenuItem":       wrapCheckMenuItem,
 	"GtkClipboard":           wrapClipboard,
@@ -8958,6 +9151,7 @@ var WrapMap = map[string]WrapFn{
 	"GtkToggleButton":        wrapToggleButton,
 	"GtkToolbar":             wrapToolbar,
 	"GtkToolButton":          wrapToolButton,
+	"GtkToggleToolButton":    wrapToggleToolButton,
 	"GtkToolItem":            wrapToolItem,
 	"GtkTreeModel":           wrapTreeModel,
 	"GtkTreeModelFilter":     wrapTreeModelFilter,

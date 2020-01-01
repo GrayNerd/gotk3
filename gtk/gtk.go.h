@@ -262,6 +262,12 @@ toGtkImage(void *p)
 	return (GTK_IMAGE(p));
 }
 
+static GtkButtonBox *
+toGtkButtonBox(void *p)
+{
+	return (GTK_BUTTON_BOX(p));
+}
+
 static GtkButton *
 toGtkButton(void *p)
 {
@@ -700,6 +706,12 @@ toGtkToolButton(void *p)
 	return (GTK_TOOL_BUTTON(p));
 }
 
+static GtkToggleToolButton *
+toGtkToggleToolButton(void *p)
+{
+	return (GTK_TOGGLE_TOOL_BUTTON(p));
+}
+
 static GtkSeparatorToolItem *
 toGtkSeparatorToolItem(void *p)
 {
@@ -752,6 +764,12 @@ static GtkCellRendererProgress *
 toGtkCellRendererProgress(void *p)
 {
 	return (GTK_CELL_RENDERER_PROGRESS(p));
+}
+
+static GtkCellRendererCombo *
+toGtkCellRendererCombo(void *p)
+{
+	return (GTK_CELL_RENDERER_COMBO(p));
 }
 
 static GType *
