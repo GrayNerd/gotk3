@@ -7,7 +7,6 @@ package gtk
 import "C"
 
 import (
-	// "fmt"
 	"unsafe"
 
 	"github.com/gotk3/gotk3/glib"
@@ -386,45 +385,26 @@ func (v *TextIter) InRange(v1 *TextIter, v2 *TextIter) bool {
 	return gobool(C.gtk_text_iter_in_range(v.native(), v1.native(), v2.native()))
 }
 
-// TextSearchFlags is a representation of GTK's GtkTextSearchFlags
-type TextSearchFlags int
-
-const (
-	VISIBLE_ONLY     TextSearchFlags = C.GTK_TEXT_SEARCH_VISIBLE_ONLY
-	TEXT_ONLY        TextSearchFlags = C.GTK_TEXT_SEARCH_TEXT_ONLY
-	CASE_INSENSITIVE TextSearchFlags = C.GTK_TEXT_SEARCH_CASE_INSENSITIVE
-)
-
 // ForwardSearch is a wrapper around gtk_text_iter_forward_search().
-func (v *TextIter) ForwardSearch(searchText string, flags TextSearchFlags, limit *TextIter) (matchStart *TextIter, matchEnd *TextIter, found bool) {
-	cstr := C.CString(searchText)
+func (v *TextIter) ForwardSearch(text string, flags TextSearchFlags, limit *TextIter) (matchStart, matchEnd *TextIter, ok bool) {
+	cstr := C.CString(text)
 	defer C.free(unsafe.Pointer(cstr))
-	var cstart, cend C.GtkTextIter
 
-	found = gobool(C.gtk_text_iter_forward_search(v.native(), (*C.gchar)(cstr), (C.GtkTextSearchFlags)(flags), &cstart, &cend, limit.native()))
-	matchStart = (*TextIter)(unsafe.Pointer(&cstart))
-	matchEnd = (*TextIter)(unsafe.Pointer(&cend))
-
-	if found {
-		return matchStart, matchEnd, true
-	}
-	return nil, nil, false
+	matchStart, matchEnd = new(TextIter), new(TextIter)
+	cbool := C.gtk_text_iter_forward_search(v.native(), (*C.gchar)(cstr), (C.GtkTextSearchFlags)(flags),
+		(*C.GtkTextIter)(matchStart), (*C.GtkTextIter)(matchEnd), (*C.GtkTextIter)(limit))
+	return matchStart, matchEnd, gobool(cbool)
 }
 
 // BackwardSearch is a wrapper around gtk_text_iter_backward_search().
-func (v *TextIter) BackwardSearch(searchText string, flags TextSearchFlags, limit *TextIter) (matchStart *TextIter, matchEnd *TextIter, found bool) {
-	cstr := C.CString(searchText)
+func (v *TextIter) BackwardSearch(text string, flags TextSearchFlags, limit *TextIter) (matchStart, matchEnd *TextIter, ok bool) {
+	cstr := C.CString(text)
 	defer C.free(unsafe.Pointer(cstr))
-	var cstart, cend C.GtkTextIter
 
-	found = gobool(C.gtk_text_iter_backward_search(v.native(), (*C.gchar)(cstr), (C.GtkTextSearchFlags)(flags), &cstart, &cend, limit.native()))
-	matchStart = (*TextIter)(unsafe.Pointer(&cstart))
-	matchEnd = (*TextIter)(unsafe.Pointer(&cend))
-
-	if found {
-		return matchStart, matchEnd, true
-	}
-	return nil, nil, false
+	matchStart, matchEnd = new(TextIter), new(TextIter)
+	cbool := C.gtk_text_iter_backward_search(v.native(), (*C.gchar)(cstr), (C.GtkTextSearchFlags)(flags),
+		(*C.GtkTextIter)(matchStart), (*C.GtkTextIter)(matchEnd), (*C.GtkTextIter)(limit))
+	return matchStart, matchEnd, gobool(cbool)
 }
 
 // void 	gtk_text_iter_order ()
