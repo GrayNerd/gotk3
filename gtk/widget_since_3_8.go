@@ -30,7 +30,7 @@ import "C"
 import ( 
 	"unsafe"
 
-	"github.com/gotk3/gotk3/gdk"
+	"github.com/graynerd/gotk3/gdk"
 )
 
 /*
