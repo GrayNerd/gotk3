@@ -778,6 +778,24 @@ toGtkCellRendererCombo(void *p)
 	return (GTK_CELL_RENDERER_COMBO(p));
 }
 
+static GdkScreen *
+toGdkScreen(void *p)
+{
+	return (GDK_SCREEN(p));
+}
+
+static GdkDevice *
+toGdkDevice(void *p)
+{
+	return (GDK_DEVICE(p));
+}
+
+static GObject *
+toGObject(void *p)
+{
+	return (G_OBJECT(p));
+}
+
 static GType *
 alloc_types(int n) {
 	return ((GType *)g_new0(GType, n));

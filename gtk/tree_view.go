@@ -61,12 +61,12 @@ func TreeViewNewWithModel(model ITreeModel) (*TreeView, error) {
 }
 
 // GetModel is a wrapper around gtk_tree_view_get_model().
-func (v *TreeView) GetModel() (*TreeModel, error) {
+func (v *TreeView) GetModel() (ITreeModel, error) {
 	c := C.gtk_tree_view_get_model(v.native())
 	if c == nil {
-		return nil, nil
+		return nil, nilPtrErr
 	}
-	return wrapTreeModel(glib.Take(unsafe.Pointer(c))), nil
+	return castTreeModel(c)
 }
 
 // SetModel is a wrapper around gtk_tree_view_set_model().
@@ -226,7 +226,7 @@ func (v *TreeView) GetColumns() *glib.List {
 	if clist == nil {
 		return nil
 	}
-	
+
 	list := glib.WrapList(uintptr(unsafe.Pointer(clist)))
 	list.DataWrapper(func(ptr unsafe.Pointer) interface{} {
 		return wrapTreeViewColumn(glib.Take(unsafe.Pointer(ptr)))
@@ -234,7 +234,7 @@ func (v *TreeView) GetColumns() *glib.List {
 	runtime.SetFinalizer(list, func(glist *glib.List) {
 		glist.Free()
 	})
-	
+
 	return list
 }
 
@@ -347,8 +347,7 @@ func (v *TreeView) GetBinWindow() *gdk.Window {
 	return w
 }
 
-// ConvertWidgetToBinWindowCoords is a rapper around
-// gtk_tree_view_convert_widget_to_bin_window_coords().
+// ConvertWidgetToBinWindowCoords is a rapper around gtk_tree_view_convert_widget_to_bin_window_coords().
 func (v *TreeView) ConvertWidgetToBinWindowCoords(wx, wy int, bx, by *int) {
 	C.gtk_tree_view_convert_widget_to_bin_window_coords(
 		v.native(),
@@ -358,14 +357,22 @@ func (v *TreeView) ConvertWidgetToBinWindowCoords(wx, wy int, bx, by *int) {
 		(*C.gint)(unsafe.Pointer(by)))
 }
 
-// ConvertBinWindowToWidgetCoords is a rapper around
-// gtk_tree_view_convert_bin_window_to_widget_coords().
+// ConvertBinWindowToWidgetCoords is a rapper around gtk_tree_view_convert_bin_window_to_widget_coords().
 func (v *TreeView) ConvertBinWindowToWidgetCoords(bx, by int, wx, wy *int) {
 	C.gtk_tree_view_convert_bin_window_to_widget_coords(v.native(),
 		(C.gint)(bx),
 		(C.gint)(by),
 		(*C.gint)(unsafe.Pointer(wx)),
 		(*C.gint)(unsafe.Pointer(wy)))
+}
+
+// ConvertBinWindowToTreeCoords is a wrapper around gtk_tree_view_convert_bin_window_to_tree_coords().
+func (v *TreeView) ConvertBinWindowToTreeCoords(bx, by int, tx, ty *int) {
+	C.gtk_tree_view_convert_bin_window_to_tree_coords(v.native(),
+		(C.gint)(bx),
+		(C.gint)(by),
+		(*C.gint)(unsafe.Pointer(tx)),
+		(*C.gint)(unsafe.Pointer(ty)))
 }
 
 // SetEnableSearch is a wrapper around gtk_tree_view_set_enable_search().
@@ -402,7 +409,9 @@ func (v *TreeView) SetSearchEntry(e *Entry) {
 	C.gtk_tree_view_set_search_entry(v.native(), e.native())
 }
 
-// SetSearchEqualSubstringMatch sets TreeView to search by substring match.
+// SetSearchEqualSubstringMatch is a wrapper around gtk_tree_view_set_search_equal_func().
+// TODO: user data is ignored
+// TODO: searc and destroy GDestroyNotify cannot be specified
 func (v *TreeView) SetSearchEqualSubstringMatch() {
 	C.gtk_tree_view_set_search_equal_func(
 		v.native(),
@@ -537,16 +546,16 @@ func (v *TreeView) SetTooltipRow(tooltip *Tooltip, path *TreePath) {
 	C.gtk_tree_view_set_tooltip_row(v.native(), tooltip.native(), path.native())
 }
 
+// TODO:
+// GtkTreeViewDropPosition
 // gboolean 	gtk_tree_view_get_tooltip_context ()
 // void 	(*GtkTreeDestroyCountFunc) ()
-// void 	gtk_tree_view_set_destroy_count_func ()
 // gboolean 	(*GtkTreeViewRowSeparatorFunc) ()
 // GtkTreeViewRowSeparatorFunc 	gtk_tree_view_get_row_separator_func ()
 // void 	gtk_tree_view_set_row_separator_func ()
 // void 	(*GtkTreeViewSearchPositionFunc) ()
 // GtkTreeViewSearchPositionFunc 	gtk_tree_view_get_search_position_func ()
 // void 	gtk_tree_view_set_search_position_func ()
-// void 	gtk_tree_view_set_search_equal_func ()
 // GtkTreeViewSearchEqualFunc 	gtk_tree_view_get_search_equal_func ()
 // void 	gtk_tree_view_map_expanded_rows ()
 // gint 	gtk_tree_view_insert_column_with_attributes ()
@@ -555,7 +564,6 @@ func (v *TreeView) SetTooltipRow(tooltip *Tooltip, path *TreePath) {
 // void 	gtk_tree_view_get_background_area ()
 // void 	gtk_tree_view_get_visible_rect ()
 // gboolean 	gtk_tree_view_get_visible_range ()
-// void 	gtk_tree_view_convert_bin_window_to_tree_coords ()
 // void 	gtk_tree_view_convert_tree_to_bin_window_coords ()
 // void 	gtk_tree_view_convert_tree_to_widget_coords ()
 // void 	gtk_tree_view_convert_widget_to_tree_coords ()

@@ -62,7 +62,7 @@ type closureContext struct {
 }
 
 var (
-	errNilPtr = errors.New("cgo returned unexpected nil pointer")
+	nilPtrErr = errors.New("cgo returned unexpected nil pointer")
 
 	closures = struct {
 		sync.RWMutex
@@ -106,6 +106,11 @@ const (
 	TYPE_VARIANT   Type = C.G_TYPE_VARIANT
 )
 
+// IsValue checks whether the passed in type can be used for g_value_init().
+func (t Type) IsValue() bool {
+	return gobool(C._g_type_is_value(C.GType(t)))
+}
+
 // Name is a wrapper around g_type_name().
 func (t Type) Name() string {
 	return C.GoString((*C.char)(C.g_type_name(C.GType(t))))
@@ -119,6 +124,23 @@ func (t Type) Depth() uint {
 // Parent is a wrapper around g_type_parent().
 func (t Type) Parent() Type {
 	return Type(C.g_type_parent(C.GType(t)))
+}
+
+// IsA is a wrapper around g_type_is_a().
+func (t Type) IsA(isAType Type) bool {
+	return gobool(C.g_type_is_a(C.GType(t), C.GType(isAType)))
+}
+
+// TypeFromName is a wrapper around g_type_from_name
+func TypeFromName(typeName string) Type {
+	cstr := (*C.gchar)(C.CString(typeName))
+	defer C.free(unsafe.Pointer(cstr))
+	return Type(C.g_type_from_name(cstr))
+}
+
+//TypeNextBase is a wrapper around g_type_next_base
+func TypeNextBase(leafType, rootType Type) Type {
+	return Type(C.g_type_next_base(C.GType(leafType), C.GType(rootType)))
 }
 
 // UserDirectory is a representation of GLib's GUserDirectory.
@@ -272,7 +294,7 @@ func IdleAdd(f interface{}, args ...interface{}) (SourceHandle, error) {
 	// Create an idle source func to be added to the main loop context.
 	idleSrc := C.g_idle_source_new()
 	if idleSrc == nil {
-		return 0, errNilPtr
+		return 0, nilPtrErr
 	}
 	return sourceAttach(idleSrc, rf, args...)
 }
@@ -294,7 +316,7 @@ func TimeoutAdd(timeout uint, f interface{}, args ...interface{}) (SourceHandle,
 	// Create a timeout source func to be added to the main loop context.
 	timeoutSrc := C.g_timeout_source_new(C.guint(timeout))
 	if timeoutSrc == nil {
-		return 0, errNilPtr
+		return 0, nilPtrErr
 	}
 
 	return sourceAttach(timeoutSrc, rf, args...)
@@ -303,7 +325,7 @@ func TimeoutAdd(timeout uint, f interface{}, args ...interface{}) (SourceHandle,
 // sourceAttach attaches a source to the default main loop context.
 func sourceAttach(src *C.struct__GSource, rf reflect.Value, args ...interface{}) (SourceHandle, error) {
 	if src == nil {
-		return 0, errNilPtr
+		return 0, nilPtrErr
 	}
 
 	// rf must be a func with no parameters.
@@ -399,7 +421,7 @@ func GetUserRuntimeDir() string {
 func GetUserSpecialDir(directory UserDirectory) (string, error) {
 	c := C.g_get_user_special_dir(C.GUserDirectory(directory))
 	if c == nil {
-		return "", errNilPtr
+		return "", nilPtrErr
 	}
 	return C.GoString((*C.char)(c)), nil
 }
@@ -894,8 +916,18 @@ func (v *Value) native() *C.GValue {
 }
 
 // Native returns a pointer to the underlying GValue.
-func (v *Value) Native() unsafe.Pointer {
-	return unsafe.Pointer(v.native())
+func (v *Value) Native() uintptr {
+	return uintptr(unsafe.Pointer(v.native()))
+}
+
+// IsValue checks if value is a valid and initialized GValue structure.
+func (v *Value) IsValue() bool {
+	return gobool(C._g_is_value(v.native()))
+}
+
+// TypeName gets the type name of value.
+func (v *Value) TypeName() string {
+	return C.GoString((*C.char)(C._g_value_type_name(v.native())))
 }
 
 // ValueAlloc allocates a Value and sets a runtime finalizer to call
@@ -904,7 +936,7 @@ func (v *Value) Native() unsafe.Pointer {
 func ValueAlloc() (*Value, error) {
 	c := C._g_value_alloc()
 	if c == nil {
-		return nil, errNilPtr
+		return nil, nilPtrErr
 	}
 
 	v := &Value{c}
@@ -913,7 +945,8 @@ func ValueAlloc() (*Value, error) {
 	//We need to double check before unsetting, to prevent:
 	//`g_value_unset: assertion 'G_IS_VALUE (value)' failed`
 	runtime.SetFinalizer(v, func(f *Value) {
-		if t, _, err := f.Type(); err != nil || t == TYPE_INVALID || t == TYPE_NONE {
+
+		if !f.IsValue() {
 			C.g_free(C.gpointer(f.native()))
 			return
 		}
@@ -931,7 +964,7 @@ func ValueAlloc() (*Value, error) {
 func ValueInit(t Type) (*Value, error) {
 	c := C._g_value_init(C.GType(t))
 	if c == nil {
-		return nil, errNilPtr
+		return nil, nilPtrErr
 	}
 
 	v := &Value{c}
@@ -954,7 +987,7 @@ func (v *Value) unset() {
 // the g_value_get_gtype() function.  GetType() returns TYPE_INVALID if v
 // does not hold a Type, or otherwise returns the Type of v.
 func (v *Value) Type() (actual Type, fundamental Type, err error) {
-	if !gobool(C._g_is_value(v.native())) {
+	if !v.IsValue() {
 		return actual, fundamental, errors.New("invalid GValue")
 	}
 	cActual := C._g_value_type(v.native())
@@ -1121,8 +1154,8 @@ type TypeMarshaler struct {
 }
 
 // RegisterGValueMarshalers adds marshalers for several types to the
-// internal marshalers map.  Once registered, calling GoValue on any
-// Value witha registered type will return the data returned by the
+// internal marshalers map. Once registered, calling GoValue on any
+// Value with a registered type will return the data returned by the
 // marshaler.
 func RegisterGValueMarshalers(tm []TypeMarshaler) {
 	gValueMarshalers.register(tm)
@@ -1377,7 +1410,7 @@ func (v *Value) GetPointer() unsafe.Pointer {
 func (v *Value) GetString() (string, error) {
 	c := C.g_value_get_string(v.native())
 	if c == nil {
-		return "", errNilPtr
+		return "", nilPtrErr
 	}
 	return C.GoString((*C.char)(c)), nil
 }

@@ -45,6 +45,7 @@
 package gtk
 
 // #cgo pkg-config: gdk-3.0 gio-2.0 glib-2.0 gobject-2.0 gtk+-3.0
+// #include <gio/gio.h>
 // #include <gtk/gtk.h>
 // #include "gtk.go.h"
 import "C"
@@ -59,6 +60,7 @@ import (
 	"github.com/gotk3/gotk3/cairo"
 	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
+	"github.com/gotk3/gotk3/pango"
 )
 
 func init() {
@@ -83,6 +85,7 @@ func init() {
 		{glib.Type(C.gtk_image_type_get_type()), marshalImageType},
 		{glib.Type(C.gtk_input_hints_get_type()), marshalInputHints},
 		{glib.Type(C.gtk_input_purpose_get_type()), marshalInputPurpose},
+		{glib.Type(C.gtk_direction_type_get_type()), marshalDirectionType},
 		{glib.Type(C.gtk_justification_get_type()), marshalJustification},
 		{glib.Type(C.gtk_license_get_type()), marshalLicense},
 		{glib.Type(C.gtk_message_type_get_type()), marshalMessageType},
@@ -150,7 +153,9 @@ func init() {
 		{glib.Type(C.gtk_image_get_type()), marshalImage},
 		{glib.Type(C.gtk_label_get_type()), marshalLabel},
 		{glib.Type(C.gtk_link_button_get_type()), marshalLinkButton},
+		{glib.Type(C.gtk_lock_button_get_type()), marshalLockButton},
 		{glib.Type(C.gtk_layout_get_type()), marshalLayout},
+		{glib.Type(C.gtk_tree_model_sort_get_type()), marshalTreeModelSort},
 		{glib.Type(C.gtk_list_store_get_type()), marshalListStore},
 		{glib.Type(C.gtk_menu_get_type()), marshalMenu},
 		{glib.Type(C.gtk_menu_bar_get_type()), marshalMenuBar},
@@ -191,13 +196,18 @@ func init() {
 		{glib.Type(C.gtk_tool_item_get_type()), marshalToolItem},
 		{glib.Type(C.gtk_tooltip_get_type()), marshalTooltip},
 		{glib.Type(C.gtk_tree_model_get_type()), marshalTreeModel},
+		{glib.Type(C.gtk_tree_sortable_get_type()), marshalTreeSortable},
 		{glib.Type(C.gtk_tree_selection_get_type()), marshalTreeSelection},
 		{glib.Type(C.gtk_tree_store_get_type()), marshalTreeStore},
 		{glib.Type(C.gtk_tree_view_get_type()), marshalTreeView},
 		{glib.Type(C.gtk_tree_view_column_get_type()), marshalTreeViewColumn},
+		{glib.Type(C.gtk_cell_area_get_type()), marshalCellArea},
+		{glib.Type(C.gtk_cell_area_context_get_type()), marshalCellAreaContext},
+		{glib.Type(C.gtk_cell_area_box_get_type()), marshalCellAreaBox},
 		{glib.Type(C.gtk_volume_button_get_type()), marshalVolumeButton},
 		{glib.Type(C.gtk_widget_get_type()), marshalWidget},
 		{glib.Type(C.gtk_window_get_type()), marshalWindow},
+		{glib.Type(C.gtk_window_group_get_type()), marshalWindowGroup},
 
 		// Boxed
 		{glib.Type(C.gtk_target_entry_get_type()), marshalTargetEntry},
@@ -253,6 +263,20 @@ func free(str ...interface{}) {
 
 func goString(cstr *C.gchar) string {
 	return C.GoString((*C.char)(cstr))
+}
+
+// same implementation as package glib
+func toGoStringArray(c **C.gchar) []string {
+	var strs []string
+	originalc := c
+	defer C.g_strfreev(originalc)
+
+	for *c != nil {
+		strs = append(strs, C.GoString((*C.char)(*c)))
+		c = C.next_gcharptr(c)
+	}
+
+	return strs
 }
 
 // Wrapper function for TestBoolConvs since cgo can't be used with
@@ -359,6 +383,9 @@ func marshalButtonsType(p uintptr) (interface{}, error) {
 	c := C.g_value_get_enum((*C.GValue)(unsafe.Pointer(p)))
 	return ButtonsType(c), nil
 }
+
+// TODO:
+// GtkSensitivityType
 
 // CalendarDisplayOptions is a representation of GTK's GtkCalendarDisplayOptions
 type CalendarDisplayOptions int
@@ -479,6 +506,8 @@ const (
 	IMAGE_GICON     ImageType = C.GTK_IMAGE_GICON
 )
 
+// TODO: add GTK_IMAGE_SURFACE for GTK 3.10
+
 func marshalImageType(p uintptr) (interface{}, error) {
 	c := C.g_value_get_enum((*C.GValue)(unsafe.Pointer(p)))
 	return ImageType(c), nil
@@ -498,6 +527,11 @@ const (
 	INPUT_HINT_UPPERCASE_SENTENCES InputHints = C.GTK_INPUT_HINT_UPPERCASE_SENTENCES
 	INPUT_HINT_INHIBIT_OSK         InputHints = C.GTK_INPUT_HINT_INHIBIT_OSK
 )
+
+// TODO:
+// GTK_INPUT_HINT_VERTICAL_WRITING Since 3.18
+// GTK_INPUT_HINT_EMOJI Since 3.22.20
+// GTK_INPUT_HINT_NO_EMOJI Since 3.22.20
 
 func marshalInputHints(p uintptr) (interface{}, error) {
 	c := C.g_value_get_enum((*C.GValue)(unsafe.Pointer(p)))
@@ -525,7 +559,28 @@ func marshalInputPurpose(p uintptr) (interface{}, error) {
 	return InputPurpose(c), nil
 }
 
-// Justify is a representation of GTK's GtkJustification.
+// TODO:
+// GtkBaselinePosition
+// GtkDeleteType
+
+// DirectionType is a representation of GTK's GtkDirectionType.
+type DirectionType int
+
+const (
+	DIR_TAB_FORWARD  DirectionType = C.GTK_DIR_TAB_FORWARD
+	DIR_TAB_BACKWARD DirectionType = C.GTK_DIR_TAB_BACKWARD
+	DIR_UP           DirectionType = C.GTK_DIR_UP
+	DIR_DOWN         DirectionType = C.GTK_DIR_DOWN
+	DIR_LEFT         DirectionType = C.GTK_DIR_LEFT
+	DIR_RIGHT        DirectionType = C.GTK_DIR_RIGHT
+)
+
+func marshalDirectionType(p uintptr) (interface{}, error) {
+	c := C.g_value_get_enum((*C.GValue)(unsafe.Pointer(p)))
+	return DirectionType(c), nil
+}
+
+// Justification is a representation of GTK's GtkJustification.
 type Justification int
 
 const (
@@ -575,6 +630,9 @@ func marshalMessageType(p uintptr) (interface{}, error) {
 	c := C.g_value_get_enum((*C.GValue)(unsafe.Pointer(p)))
 	return MessageType(c), nil
 }
+
+// TODO:
+// GtkMovementStep
 
 // Orientation is a representation of GTK's GtkOrientation.
 type Orientation int
@@ -630,7 +688,11 @@ func marshalPolicyType(p uintptr) (interface{}, error) {
 	return PolicyType(c), nil
 }
 
-// TreeViewGridLine is a representation of GTK's GtkTreeViewGridLine.
+// TODO:
+// GtkSpinButtonUpdatePolicy
+// GtkSpinType
+
+// TreeViewGridLine is a representation of GTK's GtkTreeViewGridLines.
 type TreeViewGridLines int
 
 const (
@@ -638,6 +700,17 @@ const (
 	TREE_VIEW_GRID_LINES_HORIZONTAL TreeViewGridLines = C.GTK_TREE_VIEW_GRID_LINES_HORIZONTAL
 	TREE_VIEW_GRID_LINES_VERTICAL   TreeViewGridLines = C.GTK_TREE_VIEW_GRID_LINES_VERTICAL
 	TREE_VIEW_GRID_LINES_BOTH       TreeViewGridLines = C.GTK_TREE_VIEW_GRID_LINES_BOTH
+)
+
+// CellRendererState is a representation of GTK's GtkCellRendererState
+type CellRendererState int
+
+const (
+	CELL_RENDERER_SELECTED    CellRendererState = C.GTK_CELL_RENDERER_SELECTED
+	CELL_RENDERER_PRELIT      CellRendererState = C.GTK_CELL_RENDERER_PRELIT
+	CELL_RENDERER_INSENSITIVE CellRendererState = C.GTK_CELL_RENDERER_INSENSITIVE
+	CELL_RENDERER_SORTED      CellRendererState = C.GTK_CELL_RENDERER_SORTED
+	CELL_RENDERER_FOCUSED     CellRendererState = C.GTK_CELL_RENDERER_FOCUSED
 )
 
 // PositionType is a representation of GTK's GtkPositionType.
@@ -690,6 +763,10 @@ func marshalResponseType(p uintptr) (interface{}, error) {
 	c := C.g_value_get_enum((*C.GValue)(unsafe.Pointer(p)))
 	return ResponseType(c), nil
 }
+
+// TODO:
+// GtkScrollStep
+// GtkScrollType
 
 // SelectionMode is a representation of GTK's GtkSelectionMode.
 type SelectionMode int
@@ -1193,14 +1270,12 @@ func (v *Assistant) GetNPages() int {
 }
 
 // GetNthPage is a wrapper around gtk_assistant_get_nth_page().
-func (v *Assistant) GetNthPage(pageNum int) (*Widget, error) {
+func (v *Assistant) GetNthPage(pageNum int) (IWidget, error) {
 	c := C.gtk_assistant_get_nth_page(v.native(), C.gint(pageNum))
 	if c == nil {
 		return nil, fmt.Errorf("page %d is out of bounds", pageNum)
 	}
-
-	obj := glib.Take(unsafe.Pointer(c))
-	return wrapWidget(obj), nil
+	return castWidget(c)
 }
 
 // PrependPage is a wrapper around gtk_assistant_prepend_page().
@@ -1325,13 +1400,12 @@ func wrapBin(obj *glib.Object) *Bin {
 }
 
 // GetChild is a wrapper around gtk_bin_get_child().
-func (v *Bin) GetChild() (*Widget, error) {
+func (v *Bin) GetChild() (IWidget, error) {
 	c := C.gtk_bin_get_child(v.native())
 	if c == nil {
-		return nil, nilPtrErr
+		return nil, nil
 	}
-	obj := glib.Take(unsafe.Pointer(c))
-	return wrapWidget(obj), nil
+	return castWidget(c)
 }
 
 /*
@@ -1364,34 +1438,6 @@ func BuilderNew() (*Builder, error) {
 	if c == nil {
 		return nil, nilPtrErr
 	}
-	obj := glib.Take(unsafe.Pointer(c))
-	return &Builder{obj}, nil
-}
-
-// BuilderNewFromFile is a wrapper around gtk_builder_new_from_file().
-func BuilderNewFromFile(filePath string) (*Builder, error) {
-	cstr := C.CString(filePath)
-	defer C.free(unsafe.Pointer(cstr))
-
-	c := C.gtk_builder_new_from_file((*C.gchar)(cstr))
-	if c == nil {
-		return nil, nilPtrErr
-	}
-
-	obj := glib.Take(unsafe.Pointer(c))
-	return &Builder{obj}, nil
-}
-
-// BuilderNewFromResource is a wrapper around gtk_builder_new_from_resource().
-func BuilderNewFromResource(resourcePath string) (*Builder, error) {
-	cstr := C.CString(resourcePath)
-	defer C.free(unsafe.Pointer(cstr))
-
-	c := C.gtk_builder_new_from_resource((*C.gchar)(cstr))
-	if c == nil {
-		return nil, nilPtrErr
-	}
-
 	obj := glib.Take(unsafe.Pointer(c))
 	return &Builder{obj}, nil
 }
@@ -1482,6 +1528,23 @@ func (b *Builder) ConnectSignals(signals map[string]interface{}) {
 
 	C._gtk_builder_connect_signals_full(b.native())
 }
+
+/*
+ * GtkBuildable
+ */
+
+// TODO:
+// GtkBuildableIface
+// gtk_buildable_set_name().
+// gtk_buildable_get_name().
+// gtk_buildable_add_child().
+// gtk_buildable_set_buildable_property().
+// gtk_buildable_construct_child().
+// gtk_buildable_custom_tag_start().
+// gtk_buildable_custom_tag_end().
+// gtk_buildable_custom_finished().
+// gtk_buildable_parser_finished().
+// gtk_buildable_get_internal_child().
 
 /*
  * GtkButton
@@ -1598,13 +1661,12 @@ func (v *Button) SetImage(image IWidget) {
 }
 
 // GetImage() is a wrapper around gtk_button_get_image().
-func (v *Button) GetImage() (*Widget, error) {
+func (v *Button) GetImage() (IWidget, error) {
 	c := C.gtk_button_get_image(v.native())
 	if c == nil {
-		return nil, nilPtrErr
+		return nil, nil
 	}
-	obj := glib.Take(unsafe.Pointer(c))
-	return wrapWidget(obj), nil
+	return castWidget(c)
 }
 
 // SetImagePosition() is a wrapper around gtk_button_set_image_position().
@@ -1684,6 +1746,20 @@ func ColorButtonNewWithRGBA(gdkColor *gdk.RGBA) (*ColorButton, error) {
 		return nil, nilPtrErr
 	}
 	return wrapColorButton(glib.Take(unsafe.Pointer(c))), nil
+}
+
+// SetTitle is a wrapper around gtk_color_button_set_title().
+func (v *ColorButton) SetTitle(title string) {
+	cstr := C.CString(title)
+	defer C.free(unsafe.Pointer(cstr))
+	C.gtk_color_button_set_title(v.native(), (*C.gchar)(cstr))
+}
+
+// GetTitle is a wrapper around gtk_color_button_get_title().
+func (v *ColorButton) GetTitle() string {
+	c := C.gtk_color_button_get_title(v.native())
+	defer C.free(unsafe.Pointer(c))
+	return goString(c)
 }
 
 /*
@@ -1825,6 +1901,9 @@ func wrapCalendar(obj *glib.Object) *Calendar {
 	return &Calendar{Widget{glib.InitiallyUnowned{obj}}}
 }
 
+// TODO:
+// GtkCalendarDetailFunc
+
 // CalendarNew is a wrapper around gtk_calendar_new().
 func CalendarNew() (*Calendar, error) {
 	c := C.gtk_calendar_new()
@@ -1885,7 +1964,8 @@ func (v *Calendar) GetDate() (year, month, day uint) {
 	return uint(cyear), uint(cmonth), uint(cday)
 }
 
-// TODO gtk_calendar_set_detail_func
+// TODO:
+// gtk_calendar_set_detail_func().
 
 // GetDetailWidthChars is a wrapper around gtk_calendar_get_detail_width_chars().
 func (v *Calendar) GetDetailWidthChars() int {
@@ -1952,19 +2032,50 @@ func (v *CellLayout) toCellLayout() *C.GtkCellLayout {
 	return v.native()
 }
 
-// PackStart() is a wrapper around gtk_cell_layout_pack_start().
+// PackStart is a wrapper around gtk_cell_layout_pack_start().
 func (v *CellLayout) PackStart(cell ICellRenderer, expand bool) {
 	C.gtk_cell_layout_pack_start(v.native(), cell.toCellRenderer(),
 		gbool(expand))
 }
 
-// AddAttribute() is a wrapper around gtk_cell_layout_add_attribute().
+// AddAttribute is a wrapper around gtk_cell_layout_add_attribute().
 func (v *CellLayout) AddAttribute(cell ICellRenderer, attribute string, column int) {
 	cstr := C.CString(attribute)
 	defer C.free(unsafe.Pointer(cstr))
 	C.gtk_cell_layout_add_attribute(v.native(), cell.toCellRenderer(),
 		(*C.gchar)(cstr), C.gint(column))
 }
+
+/*
+ * GtkCellView
+ */
+
+// TODO:
+// GtkCellView
+// gtk_cell_view_new().
+// gtk_cell_view_new_with_context().
+// gtk_cell_view_new_with_text().
+// gtk_cell_view_new_with_markup().
+// gtk_cell_view_new_with_pixbuf().
+// gtk_cell_view_set_model().
+// gtk_cell_view_get_model().
+// gtk_cell_view_set_displayed_row().
+// gtk_cell_view_get_displayed_row().
+// gtk_cell_view_set_background_rgba().
+// gtk_cell_view_set_draw_sensitive().
+// gtk_cell_view_get_draw_sensitive().
+// gtk_cell_view_set_fit_model().
+// gtk_cell_view_get_fit_model().
+
+/*
+ * GtkCellEditable
+ */
+
+// TODO:
+// GtkCellEditableIface
+// gtk_cell_editable_start_editing().
+// gtk_cell_editable_editing_done().
+// gtk_cell_editable_remove_widget().
 
 /*
  * GtkCellRenderer
@@ -2343,8 +2454,7 @@ func CheckMenuItemNew() (*CheckMenuItem, error) {
 	return wrapCheckMenuItem(obj), nil
 }
 
-// CheckMenuItemNewWithLabel is a wrapper around
-// gtk_check_menu_item_new_with_label().
+// CheckMenuItemNewWithLabel is a wrapper around gtk_check_menu_item_new_with_label().
 func CheckMenuItemNewWithLabel(label string) (*CheckMenuItem, error) {
 	cstr := C.CString(label)
 	defer C.free(unsafe.Pointer(cstr))
@@ -2356,8 +2466,7 @@ func CheckMenuItemNewWithLabel(label string) (*CheckMenuItem, error) {
 	return wrapCheckMenuItem(obj), nil
 }
 
-// CheckMenuItemNewWithMnemonic is a wrapper around
-// gtk_check_menu_item_new_with_mnemonic().
+// CheckMenuItemNewWithMnemonic is a wrapper around gtk_check_menu_item_new_with_mnemonic().
 func CheckMenuItemNewWithMnemonic(label string) (*CheckMenuItem, error) {
 	cstr := C.CString(label)
 	defer C.free(unsafe.Pointer(cstr))
@@ -2589,6 +2698,10 @@ func (v *Container) CheckResize() {
 // GetChildren is a wrapper around gtk_container_get_children().
 func (v *Container) GetChildren() *glib.List {
 	clist := C.gtk_container_get_children(v.native())
+	if clist == nil {
+		return nil
+	}
+
 	glist := glib.WrapList(uintptr(unsafe.Pointer(clist)))
 	glist.DataWrapper(func(ptr unsafe.Pointer) interface{} {
 		return wrapWidget(glib.Take(ptr))
@@ -2600,13 +2713,12 @@ func (v *Container) GetChildren() *glib.List {
 // TODO: gtk_container_get_path_for_child
 
 // GetFocusChild is a wrapper around gtk_container_get_focus_child().
-func (v *Container) GetFocusChild() *Widget {
+func (v *Container) GetFocusChild() (IWidget, error) {
 	c := C.gtk_container_get_focus_child(v.native())
 	if c == nil {
-		return nil
+		return nil, nil
 	}
-	obj := glib.Take(unsafe.Pointer(c))
-	return wrapWidget(obj)
+	return castWidget(c)
 }
 
 // SetFocusChild is a wrapper around gtk_container_set_focus_child().
@@ -2614,8 +2726,7 @@ func (v *Container) SetFocusChild(child IWidget) {
 	C.gtk_container_set_focus_child(v.native(), child.toWidget())
 }
 
-// GetFocusVAdjustment is a wrapper around
-// gtk_container_get_focus_vadjustment().
+// GetFocusVAdjustment is a wrapper around gtk_container_get_focus_vadjustment().
 func (v *Container) GetFocusVAdjustment() *Adjustment {
 	c := C.gtk_container_get_focus_vadjustment(v.native())
 	if c == nil {
@@ -2625,14 +2736,12 @@ func (v *Container) GetFocusVAdjustment() *Adjustment {
 	return wrapAdjustment(obj)
 }
 
-// SetFocusVAdjustment is a wrapper around
-// gtk_container_set_focus_vadjustment().
+// SetFocusVAdjustment is a wrapper around gtk_container_set_focus_vadjustment().
 func (v *Container) SetFocusVAdjustment(adjustment *Adjustment) {
 	C.gtk_container_set_focus_vadjustment(v.native(), adjustment.native())
 }
 
-// GetFocusHAdjustment is a wrapper around
-// gtk_container_get_focus_hadjustment().
+// GetFocusHAdjustment is a wrapper around gtk_container_get_focus_hadjustment().
 func (v *Container) GetFocusHAdjustment() *Adjustment {
 	c := C.gtk_container_get_focus_hadjustment(v.native())
 	if c == nil {
@@ -2642,8 +2751,7 @@ func (v *Container) GetFocusHAdjustment() *Adjustment {
 	return wrapAdjustment(obj)
 }
 
-// SetFocusHAdjustment is a wrapper around
-// gtk_container_set_focus_hadjustment().
+// SetFocusHAdjustment is a wrapper around gtk_container_set_focus_hadjustment().
 func (v *Container) SetFocusHAdjustment(adjustment *Adjustment) {
 	C.gtk_container_set_focus_hadjustment(v.native(), adjustment.native())
 }
@@ -2654,8 +2762,9 @@ func (v *Container) ChildType() glib.Type {
 	return glib.Type(c)
 }
 
-// TODO: gtk_container_child_get_valist
-// TODO: gtk_container_child_set_valist
+// TODO:
+// gtk_container_child_get().
+// gtk_container_child_set().
 
 // ChildNotify is a wrapper around gtk_container_child_notify().
 func (v *Container) ChildNotify(child IWidget, childProperty string) {
@@ -2691,7 +2800,11 @@ func (v *Container) ChildSetProperty(child IWidget, name string, value interface
 	return nil
 }
 
-// TODO: gtk_container_forall
+// TODO:
+// gtk_container_child_get_valist().
+// gtk_container_child_set_valist().
+// gtk_container_child_notify_by_pspec().
+// gtk_container_forall().
 
 // GetBorderWidth is a wrapper around gtk_container_get_border_width().
 func (v *Container) GetBorderWidth() uint {
@@ -2709,6 +2822,14 @@ func (v *Container) PropagateDraw(child IWidget, cr *cairo.Context) {
 	context := (*C.cairo_t)(unsafe.Pointer(cr.Native()))
 	C.gtk_container_propagate_draw(v.native(), child.toWidget(), context)
 }
+
+// TODO:
+// gtk_container_class_find_child_property().
+// gtk_container_class_install_child_property().
+// gtk_container_class_install_child_properties().
+// gtk_container_class_list_child_properties().
+// gtk_container_class_handle_border_width().
+// GtkResizeMode
 
 // GdkCairoSetSourcePixBuf() is a wrapper around gdk_cairo_set_source_pixbuf().
 func GdkCairoSetSourcePixBuf(cr *cairo.Context, pixbuf *gdk.Pixbuf, pixbufX, pixbufY float64) {
@@ -2789,7 +2910,7 @@ func (v *CssProvider) ToString() (string, error) {
 	return C.GoString(c), nil
 }
 
-// GetNamed is a wrapper around gtk_css_provider_get_named().
+// CssProviderGetNamed is a wrapper around gtk_css_provider_get_named().
 func CssProviderGetNamed(name string, variant string) (*CssProvider, error) {
 	cname := C.CString(name)
 	defer C.free(unsafe.Pointer(cname))
@@ -2868,6 +2989,9 @@ func (v *Dialog) AddButton(text string, id ResponseType) (*Button, error) {
 	return wrapButton(obj), nil
 }
 
+// TODO:
+// gtk_dialog_add_buttons().
+
 // AddActionWidget() is a wrapper around gtk_dialog_add_action_widget().
 func (v *Dialog) AddActionWidget(child IWidget, id ResponseType) {
 	C.gtk_dialog_add_action_widget(v.native(), child.toWidget(), C.gint(id))
@@ -2878,29 +3002,25 @@ func (v *Dialog) SetDefaultResponse(id ResponseType) {
 	C.gtk_dialog_set_default_response(v.native(), C.gint(id))
 }
 
-// SetResponseSensitive() is a wrapper around
-// gtk_dialog_set_response_sensitive().
+// SetResponseSensitive() is a wrapper around gtk_dialog_set_response_sensitive().
 func (v *Dialog) SetResponseSensitive(id ResponseType, setting bool) {
 	C.gtk_dialog_set_response_sensitive(v.native(), C.gint(id),
 		gbool(setting))
 }
 
-// GetResponseForWidget() is a wrapper around
-// gtk_dialog_get_response_for_widget().
+// GetResponseForWidget is a wrapper around gtk_dialog_get_response_for_widget().
 func (v *Dialog) GetResponseForWidget(widget IWidget) ResponseType {
 	c := C.gtk_dialog_get_response_for_widget(v.native(), widget.toWidget())
 	return ResponseType(c)
 }
 
-// GetWidgetForResponse() is a wrapper around
-// gtk_dialog_get_widget_for_response().
-func (v *Dialog) GetWidgetForResponse(id ResponseType) (*Widget, error) {
+// GetWidgetForResponse is a wrapper around gtk_dialog_get_widget_for_response().
+func (v *Dialog) GetWidgetForResponse(id ResponseType) (IWidget, error) {
 	c := C.gtk_dialog_get_widget_for_response(v.native(), C.gint(id))
 	if c == nil {
-		return nil, nilPtrErr
+		return nil, nil
 	}
-	obj := glib.Take(unsafe.Pointer(c))
-	return wrapWidget(obj), nil
+	return castWidget(c)
 }
 
 // GetContentArea() is a wrapper around gtk_dialog_get_content_area().
@@ -2942,20 +3062,6 @@ func DialogNewWithButtons(title string, parent IWindow, flags DialogFlags, butto
 	}
 	return
 }
-
-// TODO(jrick)
-/*
-func (v *gdk.Screen) AlternativeDialogButtonOrder() bool {
-	c := C.gtk_alternative_dialog_button_order(v.native())
-	return gobool(c)
-}
-*/
-
-// TODO(jrick)
-/*
-func SetAlternativeButtonOrder(ids ...ResponseType) {
-}
-*/
 
 /*
  * GtkDrawingArea
@@ -3215,90 +3321,92 @@ func (v *Entry) GetTextLength() uint16 {
 	return uint16(c)
 }
 
-// TODO(jrick) GdkRectangle
-/*
-func (v *Entry) GetTextArea() {
+// GetTextArea is a wrapper around gtk_entry_get_text_area().
+func (v *Entry) GetTextArea() *gdk.Rectangle {
+	var cRect *C.GdkRectangle
+	C.gtk_entry_get_text_area(v.native(), cRect)
+	textArea := gdk.WrapRectangle(uintptr(unsafe.Pointer(cRect)))
+	return textArea
 }
-*/
 
-// SetVisibility() is a wrapper around gtk_entry_set_visibility().
+// SetVisibility is a wrapper around gtk_entry_set_visibility().
 func (v *Entry) SetVisibility(visible bool) {
 	C.gtk_entry_set_visibility(v.native(), gbool(visible))
 }
 
-// SetInvisibleChar() is a wrapper around gtk_entry_set_invisible_char().
+// SetInvisibleChar is a wrapper around gtk_entry_set_invisible_char().
 func (v *Entry) SetInvisibleChar(ch rune) {
 	C.gtk_entry_set_invisible_char(v.native(), C.gunichar(ch))
 }
 
-// UnsetInvisibleChar() is a wrapper around gtk_entry_unset_invisible_char().
+// UnsetInvisibleChar is a wrapper around gtk_entry_unset_invisible_char().
 func (v *Entry) UnsetInvisibleChar() {
 	C.gtk_entry_unset_invisible_char(v.native())
 }
 
-// SetMaxLength() is a wrapper around gtk_entry_set_max_length().
+// SetMaxLength is a wrapper around gtk_entry_set_max_length().
 func (v *Entry) SetMaxLength(len int) {
 	C.gtk_entry_set_max_length(v.native(), C.gint(len))
 }
 
-// GetActivatesDefault() is a wrapper around gtk_entry_get_activates_default().
+// GetActivatesDefault is a wrapper around gtk_entry_get_activates_default().
 func (v *Entry) GetActivatesDefault() bool {
 	c := C.gtk_entry_get_activates_default(v.native())
 	return gobool(c)
 }
 
-// GetHasFrame() is a wrapper around gtk_entry_get_has_frame().
+// GetHasFrame is a wrapper around gtk_entry_get_has_frame().
 func (v *Entry) GetHasFrame() bool {
 	c := C.gtk_entry_get_has_frame(v.native())
 	return gobool(c)
 }
 
-// GetWidthChars() is a wrapper around gtk_entry_get_width_chars().
+// GetWidthChars is a wrapper around gtk_entry_get_width_chars().
 func (v *Entry) GetWidthChars() int {
 	c := C.gtk_entry_get_width_chars(v.native())
 	return int(c)
 }
 
-// SetActivatesDefault() is a wrapper around gtk_entry_set_activates_default().
+// SetActivatesDefault is a wrapper around gtk_entry_set_activates_default().
 func (v *Entry) SetActivatesDefault(setting bool) {
 	C.gtk_entry_set_activates_default(v.native(), gbool(setting))
 }
 
-// SetHasFrame() is a wrapper around gtk_entry_set_has_frame().
+// SetHasFrame is a wrapper around gtk_entry_set_has_frame().
 func (v *Entry) SetHasFrame(setting bool) {
 	C.gtk_entry_set_has_frame(v.native(), gbool(setting))
 }
 
-// SetWidthChars() is a wrapper around gtk_entry_set_width_chars().
+// SetWidthChars is a wrapper around gtk_entry_set_width_chars().
 func (v *Entry) SetWidthChars(nChars int) {
 	C.gtk_entry_set_width_chars(v.native(), C.gint(nChars))
 }
 
-// GetInvisibleChar() is a wrapper around gtk_entry_get_invisible_char().
+// GetInvisibleChar is a wrapper around gtk_entry_get_invisible_char().
 func (v *Entry) GetInvisibleChar() rune {
 	c := C.gtk_entry_get_invisible_char(v.native())
 	return rune(c)
 }
 
-// SetAlignment() is a wrapper around gtk_entry_set_alignment().
+// SetAlignment is a wrapper around gtk_entry_set_alignment().
 func (v *Entry) SetAlignment(xalign float32) {
 	C.gtk_entry_set_alignment(v.native(), C.gfloat(xalign))
 }
 
-// GetAlignment() is a wrapper around gtk_entry_get_alignment().
+// GetAlignment is a wrapper around gtk_entry_get_alignment().
 func (v *Entry) GetAlignment() float32 {
 	c := C.gtk_entry_get_alignment(v.native())
 	return float32(c)
 }
 
-// SetPlaceholderText() is a wrapper around gtk_entry_set_placeholder_text().
+// SetPlaceholderText is a wrapper around gtk_entry_set_placeholder_text().
 func (v *Entry) SetPlaceholderText(text string) {
 	cstr := C.CString(text)
 	defer C.free(unsafe.Pointer(cstr))
 	C.gtk_entry_set_placeholder_text(v.native(), (*C.gchar)(cstr))
 }
 
-// GetPlaceholderText() is a wrapper around gtk_entry_get_placeholder_text().
+// GetPlaceholderText is a wrapper around gtk_entry_get_placeholder_text().
 func (v *Entry) GetPlaceholderText() (string, error) {
 	c := C.gtk_entry_get_placeholder_text(v.native())
 	if c == nil {
@@ -3307,76 +3415,78 @@ func (v *Entry) GetPlaceholderText() (string, error) {
 	return goString(c), nil
 }
 
-// SetOverwriteMode() is a wrapper around gtk_entry_set_overwrite_mode().
+// SetOverwriteMode is a wrapper around gtk_entry_set_overwrite_mode().
 func (v *Entry) SetOverwriteMode(overwrite bool) {
 	C.gtk_entry_set_overwrite_mode(v.native(), gbool(overwrite))
 }
 
-// GetOverwriteMode() is a wrapper around gtk_entry_get_overwrite_mode().
+// GetOverwriteMode is a wrapper around gtk_entry_get_overwrite_mode().
 func (v *Entry) GetOverwriteMode() bool {
 	c := C.gtk_entry_get_overwrite_mode(v.native())
 	return gobool(c)
 }
 
-// TODO(jrick) Pangolayout
-/*
-func (v *Entry) GetLayout() {
+// GetLayout is a wrapper around gtk_entry_get_layout().
+func (v *Entry) GetLayout() *pango.Layout {
+	c := C.gtk_entry_get_layout(v.native())
+	return pango.WrapLayout(uintptr(unsafe.Pointer(c)))
 }
-*/
 
-// GetLayoutOffsets() is a wrapper around gtk_entry_get_layout_offsets().
+// GetLayoutOffsets is a wrapper around gtk_entry_get_layout_offsets().
 func (v *Entry) GetLayoutOffsets() (x, y int) {
 	var gx, gy C.gint
 	C.gtk_entry_get_layout_offsets(v.native(), &gx, &gy)
 	return int(gx), int(gy)
 }
 
-// LayoutIndexToTextIndex() is a wrapper around
-// gtk_entry_layout_index_to_text_index().
+// LayoutIndexToTextIndex is a wrapper around gtk_entry_layout_index_to_text_index().
 func (v *Entry) LayoutIndexToTextIndex(layoutIndex int) int {
 	c := C.gtk_entry_layout_index_to_text_index(v.native(),
 		C.gint(layoutIndex))
 	return int(c)
 }
 
-// TextIndexToLayoutIndex() is a wrapper around
-// gtk_entry_text_index_to_layout_index().
+// TextIndexToLayoutIndex is a wrapper around gtk_entry_text_index_to_layout_index().
 func (v *Entry) TextIndexToLayoutIndex(textIndex int) int {
 	c := C.gtk_entry_text_index_to_layout_index(v.native(),
 		C.gint(textIndex))
 	return int(c)
 }
 
-// TODO(jrick) PandoAttrList
-/*
-func (v *Entry) SetAttributes() {
-}
-*/
+// TODO: depends on PandoAttrList
+// SetAttributes is a wrapper around gtk_entry_set_attributes().
+// func (v *Entry) SetAttributes(attrList *pango.AttrList) {
+// 	C.gtk_entry_set_attributes(v.native(), (*C.PangoAttrList)(unsafe.Pointer(attrList.Native())))
+// }
 
-// TODO(jrick) PandoAttrList
-/*
-func (v *Entry) GetAttributes() {
-}
-*/
+// TODO: depends on PandoAttrList
+// GetAttributes is a wrapper around gtk_entry_get_attributes().
+// func (v *Entry) GetAttributes() (*pango.AttrList, error) {
+// 	c := C.gtk_entry_get_attributes(v.native())
+// 	if c == nil {
+// 		return nil, nilPtrErr
+// 	}
+// 	return &pango.AttrList{unsafe.Pointer(c)}, nil
+// }
 
-// GetMaxLength() is a wrapper around gtk_entry_get_max_length().
+// GetMaxLength is a wrapper around gtk_entry_get_max_length().
 func (v *Entry) GetMaxLength() int {
 	c := C.gtk_entry_get_max_length(v.native())
 	return int(c)
 }
 
-// GetVisibility() is a wrapper around gtk_entry_get_visibility().
+// GetVisibility is a wrapper around gtk_entry_get_visibility().
 func (v *Entry) GetVisibility() bool {
 	c := C.gtk_entry_get_visibility(v.native())
 	return gobool(c)
 }
 
-// SetCompletion() is a wrapper around gtk_entry_set_completion().
+// SetCompletion is a wrapper around gtk_entry_set_completion().
 func (v *Entry) SetCompletion(completion *EntryCompletion) {
 	C.gtk_entry_set_completion(v.native(), completion.native())
 }
 
-// GetCompletion() is a wrapper around gtk_entry_get_completion().
+// GetCompletion is a wrapper around gtk_entry_get_completion().
 func (v *Entry) GetCompletion() (*EntryCompletion, error) {
 	c := C.gtk_entry_get_completion(v.native())
 	if c == nil {
@@ -3387,14 +3497,12 @@ func (v *Entry) GetCompletion() (*EntryCompletion, error) {
 	return e, nil
 }
 
-// SetCursorHAdjustment() is a wrapper around
-// gtk_entry_set_cursor_hadjustment().
+// SetCursorHAdjustment is a wrapper around gtk_entry_set_cursor_hadjustment().
 func (v *Entry) SetCursorHAdjustment(adjustment *Adjustment) {
 	C.gtk_entry_set_cursor_hadjustment(v.native(), adjustment.native())
 }
 
-// GetCursorHAdjustment() is a wrapper around
-// gtk_entry_get_cursor_hadjustment().
+// GetCursorHAdjustment is a wrapper around gtk_entry_get_cursor_hadjustment().
 func (v *Entry) GetCursorHAdjustment() (*Adjustment, error) {
 	c := C.gtk_entry_get_cursor_hadjustment(v.native())
 	if c == nil {
@@ -3404,145 +3512,140 @@ func (v *Entry) GetCursorHAdjustment() (*Adjustment, error) {
 	return &Adjustment{glib.InitiallyUnowned{obj}}, nil
 }
 
-// SetProgressFraction() is a wrapper around gtk_entry_set_progress_fraction().
+// SetProgressFraction is a wrapper around gtk_entry_set_progress_fraction().
 func (v *Entry) SetProgressFraction(fraction float64) {
 	C.gtk_entry_set_progress_fraction(v.native(), C.gdouble(fraction))
 }
 
-// GetProgressFraction() is a wrapper around gtk_entry_get_progress_fraction().
+// GetProgressFraction is a wrapper around gtk_entry_get_progress_fraction().
 func (v *Entry) GetProgressFraction() float64 {
 	c := C.gtk_entry_get_progress_fraction(v.native())
 	return float64(c)
 }
 
-// SetProgressPulseStep() is a wrapper around
-// gtk_entry_set_progress_pulse_step().
+// SetProgressPulseStep is a wrapper around gtk_entry_set_progress_pulse_step().
 func (v *Entry) SetProgressPulseStep(fraction float64) {
 	C.gtk_entry_set_progress_pulse_step(v.native(), C.gdouble(fraction))
 }
 
-// GetProgressPulseStep() is a wrapper around
-// gtk_entry_get_progress_pulse_step().
+// GetProgressPulseStep is a wrapper around gtk_entry_get_progress_pulse_step().
 func (v *Entry) GetProgressPulseStep() float64 {
 	c := C.gtk_entry_get_progress_pulse_step(v.native())
 	return float64(c)
 }
 
-// ProgressPulse() is a wrapper around gtk_entry_progress_pulse().
+// ProgressPulse is a wrapper around gtk_entry_progress_pulse().
 func (v *Entry) ProgressPulse() {
 	C.gtk_entry_progress_pulse(v.native())
 }
 
-// TODO(jrick) GdkEventKey
-/*
-func (v *Entry) IMContextFilterKeypress() {
+// IMContextFilterKeypress is a wrapper around gtk_entry_im_context_filter_keypress().
+func (v *Entry) IMContextFilterKeypress(eventKey *gdk.EventKey) bool {
+	key := (*C.GdkEventKey)(unsafe.Pointer(eventKey.Native()))
+	c := C.gtk_entry_im_context_filter_keypress(v.native(), key)
+	return gobool(c)
 }
-*/
 
-// ResetIMContext() is a wrapper around gtk_entry_reset_im_context().
+// ResetIMContext is a wrapper around gtk_entry_reset_im_context().
 func (v *Entry) ResetIMContext() {
 	C.gtk_entry_reset_im_context(v.native())
 }
 
 // SetIconFromPixbuf is a wrapper around gtk_entry_set_icon_from_pixbuf().
 func (v *Entry) SetIconFromPixbuf(iconPos EntryIconPosition, pixbuf *gdk.Pixbuf) {
-	C.gtk_entry_set_icon_from_pixbuf(v.native(),
-		C.GtkEntryIconPosition(iconPos),
+	C.gtk_entry_set_icon_from_pixbuf(v.native(), C.GtkEntryIconPosition(iconPos),
 		(*C.GdkPixbuf)(unsafe.Pointer(pixbuf.Native())))
 }
 
-// SetIconFromIconName() is a wrapper around
-// gtk_entry_set_icon_from_icon_name().
+// SetIconFromIconName is a wrapper around gtk_entry_set_icon_from_icon_name().
 func (v *Entry) SetIconFromIconName(iconPos EntryIconPosition, name string) {
 	cstr := C.CString(name)
 	defer C.free(unsafe.Pointer(cstr))
-	C.gtk_entry_set_icon_from_icon_name(v.native(),
-		C.GtkEntryIconPosition(iconPos), (*C.gchar)(cstr))
+	C.gtk_entry_set_icon_from_icon_name(v.native(), C.GtkEntryIconPosition(iconPos), (*C.gchar)(cstr))
 }
 
-// RemoveIcon() is a wrapper around gtk_entry_set_icon_from_icon_name()
-// with a nil pointer to the icon name.
+// RemoveIcon is a convenience func to set a nil pointer to the icon name.
 func (v *Entry) RemoveIcon(iconPos EntryIconPosition) {
-	C.gtk_entry_set_icon_from_icon_name(v.native(),
-		C.GtkEntryIconPosition(iconPos), nil)
+	C.gtk_entry_set_icon_from_icon_name(v.native(), C.GtkEntryIconPosition(iconPos), nil)
 }
 
-// TODO(jrick) GIcon
-/*
-func (v *Entry) SetIconFromGIcon() {
-}
-*/
+// TODO: Needs gio/GIcon implemented first
+// SetIconFromGIcon is a wrapper around gtk_entry_set_icon_from_gicon().
+// func (v *Entry) SetIconFromGIcon(iconPos EntryIconPosition, icon *glib.Icon) {
+// 	C.gtk_entry_set_icon_from_gicon(v.native(),
+//		(*C.GIcon)(unsafe.Pointer(icon.Native())))
+// }
 
-// GetIconStorageType() is a wrapper around gtk_entry_get_icon_storage_type().
+// GetIconStorageType is a wrapper around gtk_entry_get_icon_storage_type().
 func (v *Entry) GetIconStorageType(iconPos EntryIconPosition) ImageType {
-	c := C.gtk_entry_get_icon_storage_type(v.native(),
-		C.GtkEntryIconPosition(iconPos))
+	c := C.gtk_entry_get_icon_storage_type(v.native(), C.GtkEntryIconPosition(iconPos))
 	return ImageType(c)
 }
 
-// TODO(jrick) GdkPixbuf
-/*
-func (v *Entry) GetIconPixbuf() {
+// GetIconPixbuf is a wrapper around gtk_entry_get_icon_pixbuf().
+func (v *Entry) GetIconPixbuf(iconPos EntryIconPosition) (*gdk.Pixbuf, error) {
+	c := C.gtk_entry_get_icon_pixbuf(v.native(), C.GtkEntryIconPosition(iconPos))
+	if c == nil {
+		return nil, nilPtrErr
+	}
+	return &gdk.Pixbuf{glib.Take(unsafe.Pointer(c))}, nil
 }
-*/
 
-// GetIconName() is a wrapper around gtk_entry_get_icon_name().
+// GetIconName is a wrapper around gtk_entry_get_icon_name().
 func (v *Entry) GetIconName(iconPos EntryIconPosition) (string, error) {
-	c := C.gtk_entry_get_icon_name(v.native(),
-		C.GtkEntryIconPosition(iconPos))
+	c := C.gtk_entry_get_icon_name(v.native(), C.GtkEntryIconPosition(iconPos))
 	if c == nil {
 		return "", nilPtrErr
 	}
 	return goString(c), nil
 }
 
-// TODO(jrick) GIcon
-/*
-func (v *Entry) GetIconGIcon() {
-}
-*/
+// TODO
+// GetIconGIcon is a wrapper aroudn gtk_entry_get_icon_gicon().
+// func (v *Entry) GetIconGIcon(iconPos EntryIconPosition) (*glib.Icon, error) {
+// 	c := C.gtk_entry_get_icon_gicon(v.native(), C.GtkEntryIconPosition(iconPos))
+// 	if c == nil {
+// 		return nil, nilPtrErr
+// 	}
+// 	return &glib.Icon{unsafe.Pointer(c)}, nil
+// }
 
-// SetIconActivatable() is a wrapper around gtk_entry_set_icon_activatable().
+// SetIconActivatable is a wrapper around gtk_entry_set_icon_activatable().
 func (v *Entry) SetIconActivatable(iconPos EntryIconPosition, activatable bool) {
-	C.gtk_entry_set_icon_activatable(v.native(),
-		C.GtkEntryIconPosition(iconPos), gbool(activatable))
+	C.gtk_entry_set_icon_activatable(v.native(), C.GtkEntryIconPosition(iconPos), gbool(activatable))
 }
 
-// GetIconActivatable() is a wrapper around gtk_entry_get_icon_activatable().
+// GetIconActivatable is a wrapper around gtk_entry_get_icon_activatable().
 func (v *Entry) GetIconActivatable(iconPos EntryIconPosition) bool {
-	c := C.gtk_entry_get_icon_activatable(v.native(),
-		C.GtkEntryIconPosition(iconPos))
+	c := C.gtk_entry_get_icon_activatable(v.native(), C.GtkEntryIconPosition(iconPos))
 	return gobool(c)
 }
 
-// SetIconSensitive() is a wrapper around gtk_entry_set_icon_sensitive().
+// SetIconSensitive is a wrapper around gtk_entry_set_icon_sensitive().
 func (v *Entry) SetIconSensitive(iconPos EntryIconPosition, sensitive bool) {
-	C.gtk_entry_set_icon_sensitive(v.native(),
-		C.GtkEntryIconPosition(iconPos), gbool(sensitive))
+	C.gtk_entry_set_icon_sensitive(v.native(), C.GtkEntryIconPosition(iconPos), gbool(sensitive))
 }
 
-// GetIconSensitive() is a wrapper around gtk_entry_get_icon_sensitive().
+// GetIconSensitive is a wrapper around gtk_entry_get_icon_sensitive().
 func (v *Entry) GetIconSensitive(iconPos EntryIconPosition) bool {
-	c := C.gtk_entry_get_icon_sensitive(v.native(),
-		C.GtkEntryIconPosition(iconPos))
+	c := C.gtk_entry_get_icon_sensitive(v.native(), C.GtkEntryIconPosition(iconPos))
 	return gobool(c)
 }
 
-// GetIconAtPos() is a wrapper around gtk_entry_get_icon_at_pos().
+// GetIconAtPos is a wrapper around gtk_entry_get_icon_at_pos().
 func (v *Entry) GetIconAtPos(x, y int) int {
 	c := C.gtk_entry_get_icon_at_pos(v.native(), C.gint(x), C.gint(y))
 	return int(c)
 }
 
-// SetIconTooltipText() is a wrapper around gtk_entry_set_icon_tooltip_text().
+// SetIconTooltipText is a wrapper around gtk_entry_set_icon_tooltip_text().
 func (v *Entry) SetIconTooltipText(iconPos EntryIconPosition, tooltip string) {
 	cstr := C.CString(tooltip)
 	defer C.free(unsafe.Pointer(cstr))
-	C.gtk_entry_set_icon_tooltip_text(v.native(),
-		C.GtkEntryIconPosition(iconPos), (*C.gchar)(cstr))
+	C.gtk_entry_set_icon_tooltip_text(v.native(), C.GtkEntryIconPosition(iconPos), (*C.gchar)(cstr))
 }
 
-// GetIconTooltipText() is a wrapper around gtk_entry_get_icon_tooltip_text().
+// GetIconTooltipText is a wrapper around gtk_entry_get_icon_tooltip_text().
 func (v *Entry) GetIconTooltipText(iconPos EntryIconPosition) (string, error) {
 	c := C.gtk_entry_get_icon_tooltip_text(v.native(),
 		C.GtkEntryIconPosition(iconPos))
@@ -3552,8 +3655,7 @@ func (v *Entry) GetIconTooltipText(iconPos EntryIconPosition) (string, error) {
 	return goString(c), nil
 }
 
-// SetIconTooltipMarkup() is a wrapper around
-// gtk_entry_set_icon_tooltip_markup().
+// SetIconTooltipMarkup is a wrapper around gtk_entry_set_icon_tooltip_markup().
 func (v *Entry) SetIconTooltipMarkup(iconPos EntryIconPosition, tooltip string) {
 	cstr := C.CString(tooltip)
 	defer C.free(unsafe.Pointer(cstr))
@@ -3561,8 +3663,7 @@ func (v *Entry) SetIconTooltipMarkup(iconPos EntryIconPosition, tooltip string) 
 		C.GtkEntryIconPosition(iconPos), (*C.gchar)(cstr))
 }
 
-// GetIconTooltipMarkup() is a wrapper around
-// gtk_entry_get_icon_tooltip_markup().
+// GetIconTooltipMarkup is a wrapper around gtk_entry_get_icon_tooltip_markup().
 func (v *Entry) GetIconTooltipMarkup(iconPos EntryIconPosition) (string, error) {
 	c := C.gtk_entry_get_icon_tooltip_markup(v.native(),
 		C.GtkEntryIconPosition(iconPos))
@@ -3572,42 +3673,44 @@ func (v *Entry) GetIconTooltipMarkup(iconPos EntryIconPosition) (string, error) 
 	return goString(c), nil
 }
 
-// TODO(jrick) GdkDragAction
-/*
-func (v *Entry) SetIconDragSource() {
-}
-*/
+// TODO: depends on GtkTargetList
+// SetIconDragSource is a wrapper around gtk_entry_set_icon_drag_source().
+// func (v *Entry) SetIconDragSource(iconPos EntryIconPosition, targetList *TargetList, action gdk.DragAction) {
+// 	C.gtk_entry_set_icon_drag_source(v.native(), C.GtkEntryIconPosition(iconPos),
+// 		targetList.native(), C.GdkDragAction(action))
+// }
 
-// GetCurrentIconDragSource() is a wrapper around
-// gtk_entry_get_current_icon_drag_source().
+// GetCurrentIconDragSource is a wrapper around gtk_entry_get_current_icon_drag_source().
 func (v *Entry) GetCurrentIconDragSource() int {
 	c := C.gtk_entry_get_current_icon_drag_source(v.native())
 	return int(c)
 }
 
-// TODO(jrick) GdkRectangle
-/*
-func (v *Entry) GetIconArea() {
+// GetIconArea is a wrapper around gtk_entry_get_icon_area().
+func (v *Entry) GetIconArea(iconPos EntryIconPosition) *gdk.Rectangle {
+	var cRect *C.GdkRectangle
+	C.gtk_entry_get_icon_area(v.native(), C.GtkEntryIconPosition(iconPos), cRect)
+	iconArea := gdk.WrapRectangle(uintptr(unsafe.Pointer(cRect)))
+	return iconArea
 }
-*/
 
-// SetInputPurpose() is a wrapper around gtk_entry_set_input_purpose().
+// SetInputPurpose is a wrapper around gtk_entry_set_input_purpose().
 func (v *Entry) SetInputPurpose(purpose InputPurpose) {
 	C.gtk_entry_set_input_purpose(v.native(), C.GtkInputPurpose(purpose))
 }
 
-// GetInputPurpose() is a wrapper around gtk_entry_get_input_purpose().
+// GetInputPurpose is a wrapper around gtk_entry_get_input_purpose().
 func (v *Entry) GetInputPurpose() InputPurpose {
 	c := C.gtk_entry_get_input_purpose(v.native())
 	return InputPurpose(c)
 }
 
-// SetInputHints() is a wrapper around gtk_entry_set_input_hints().
+// SetInputHints is a wrapper around gtk_entry_set_input_hints().
 func (v *Entry) SetInputHints(hints InputHints) {
 	C.gtk_entry_set_input_hints(v.native(), C.GtkInputHints(hints))
 }
 
-// GetInputHints() is a wrapper around gtk_entry_get_input_hints().
+// GetInputHints is a wrapper around gtk_entry_get_input_hints().
 func (v *Entry) GetInputHints() InputHints {
 	c := C.gtk_entry_get_input_hints(v.native())
 	return InputHints(c)
@@ -3754,6 +3857,9 @@ func wrapEntryCompletion(obj *glib.Object) *EntryCompletion {
 	return &EntryCompletion{obj}
 }
 
+// TODO:
+// GtkEntryCompletionMatchFunc
+
 // EntryCompletionNew is a wrapper around gtk_entry_completion_new
 func EntryCompletionNew() (*EntryCompletion, error) {
 	c := C.gtk_entry_completion_new()
@@ -3763,6 +3869,10 @@ func EntryCompletionNew() (*EntryCompletion, error) {
 	obj := glib.Take(unsafe.Pointer(c))
 	return wrapEntryCompletion(obj), nil
 }
+
+// TODO:
+// gtk_entry_completion_new_with_area().
+// gtk_entry_completion_get_entry().
 
 // SetModel is a wrapper around gtk_entry_completion_set_model
 func (v *EntryCompletion) SetModel(model ITreeModel) {
@@ -3774,14 +3884,16 @@ func (v *EntryCompletion) SetModel(model ITreeModel) {
 }
 
 // GetModel is a wrapper around gtk_entry_completion_get_model
-func (v *EntryCompletion) GetModel() (*TreeModel, error) {
+func (v *EntryCompletion) GetModel() (ITreeModel, error) {
 	c := C.gtk_entry_completion_get_model(v.native())
 	if c == nil {
 		return nil, nilPtrErr
 	}
-	obj := glib.Take(unsafe.Pointer(c))
-	return wrapTreeModel(obj), nil
+	return castTreeModel(c)
 }
+
+// TODO:
+// gtk_entry_completion_set_match_func().
 
 // SetMinimumKeyLength is a wrapper around gtk_entry_completion_set_minimum_key_length
 func (v *EntryCompletion) SetMinimumKeyLength(minimumLength int) {
@@ -3793,6 +3905,15 @@ func (v *EntryCompletion) GetMinimumKeyLength() int {
 	c := C.gtk_entry_completion_get_minimum_key_length(v.native())
 	return int(c)
 }
+
+// TODO:
+// gtk_entry_completion_compute_prefix().
+// gtk_entry_completion_complete().
+// gtk_entry_completion_get_completion_prefix().
+// gtk_entry_completion_insert_prefix().
+// gtk_entry_completion_insert_action_text().
+// gtk_entry_completion_insert_action_markup().
+// gtk_entry_completion_delete_action().
 
 // SetTextColumn is a wrapper around gtk_entry_completion_set_text_column
 func (v *EntryCompletion) SetTextColumn(textColumn int) {
@@ -3816,6 +3937,10 @@ func (v *EntryCompletion) GetInlineCompletion() bool {
 	return gobool(c)
 }
 
+// TODO
+// gtk_entry_completion_set_inline_selection().
+// gtk_entry_completion_get_inline_selection().
+
 // SetPopupCompletion is a wrapper around gtk_entry_completion_set_popup_completion
 func (v *EntryCompletion) SetPopupCompletion(popupCompletion bool) {
 	C.gtk_entry_completion_set_popup_completion(v.native(), gbool(popupCompletion))
@@ -3837,6 +3962,10 @@ func (v *EntryCompletion) GetPopupSetWidth() bool {
 	c := C.gtk_entry_completion_get_popup_set_width(v.native())
 	return gobool(c)
 }
+
+// TODO:
+// gtk_entry_completion_set_popup_single_match().
+// gtk_entry_completion_get_popup_single_match().
 
 /*
  * GtkEventBox
@@ -3941,6 +4070,9 @@ func ExpanderNew(label string) (*Expander, error) {
 	return wrapExpander(obj), nil
 }
 
+// TODO:
+// gtk_expander_new_with_mnemonic().
+
 // SetExpanded is a wrapper around gtk_expander_set_expanded().
 func (v *Expander) SetExpanded(expanded bool) {
 	C.gtk_expander_set_expanded(v.native(), gbool(expanded))
@@ -3968,10 +4100,23 @@ func (v *Expander) GetLabel() string {
 	return goString(c)
 }
 
+// TODO:
+// gtk_expander_set_use_underline().
+// gtk_expander_get_use_underline().
+// gtk_expander_set_use_markup().
+// gtk_expander_get_use_markup().
+
 // SetLabelWidget is a wrapper around gtk_expander_set_label_widget().
 func (v *Expander) SetLabelWidget(widget IWidget) {
 	C.gtk_expander_set_label_widget(v.native(), widget.toWidget())
 }
+
+// TODO:
+// gtk_expander_get_label_widget().
+// gtk_expander_set_label_fill().
+// gtk_expander_get_label_fill().
+// gtk_expander_set_resize_toplevel().
+// gtk_expander_get_resize_toplevel().
 
 /*
  * GtkFileChooser
@@ -4017,22 +4162,74 @@ func (v *FileChooser) GetFilename() string {
 	return s
 }
 
+// SelectFilename is a wrapper around gtk_file_chooser_select_filename().
+func (v *FileChooser) SelectFilename(filename string) bool {
+	cstr := C.CString(filename)
+	defer C.free(unsafe.Pointer(cstr))
+	c := C.gtk_file_chooser_select_filename(v.native(), cstr)
+	return gobool(c)
+}
+
+// UnselectFilename is a wrapper around gtk_file_chooser_unselect_filename().
+func (v *FileChooser) UnselectFilename(filename string) {
+	cstr := C.CString(filename)
+	defer C.free(unsafe.Pointer(cstr))
+	C.gtk_file_chooser_unselect_filename(v.native(), cstr)
+}
+
+// SelectAll is a wrapper around gtk_file_chooser_select_all().
+func (v *FileChooser) SelectAll() {
+	C.gtk_file_chooser_select_all(v.native())
+}
+
+// UnselectAll is a wrapper around gtk_file_chooser_unselect_all().
+func (v *FileChooser) UnselectAll() {
+	C.gtk_file_chooser_unselect_all(v.native())
+}
+
 // GetFilenames is a wrapper around gtk_file_chooser_get_filenames().
-func (v *FileChooser) GetFilenames() (*glib.SList, error) {
-	c := C.gtk_file_chooser_get_filenames(v.native())
-	if c == nil {
+func (v *FileChooser) GetFilenames() ([]string, error) {
+	clist := C.gtk_file_chooser_get_filenames(v.native())
+	if clist == nil {
 		return nil, nilPtrErr
 	}
-	return glib.WrapSList(uintptr(unsafe.Pointer(c))), nil
+
+	slist := glib.WrapSList(uintptr(unsafe.Pointer(clist)))
+
+	var filenames []string
+	for ; slist.DataRaw() != nil; slist = slist.Next() {
+		w := (*C.char)(slist.DataRaw())
+		filename := C.GoString(w)
+		defer C.free(unsafe.Pointer(w))
+		filenames = append(filenames, filename)
+	}
+
+	defer slist.Free()
+
+	return filenames, nil
 }
 
 // GetURIs is a wrapper around gtk_file_chooser_get_uris().
-func (v FileChooser) GetURIs() (*glib.SList, error) {
-	c := C.gtk_file_chooser_get_uris(v.native())
-	if c == nil {
+func (v FileChooser) GetURIs() ([]string, error) {
+	// TODO: do the same as in (v *FileChooser) GetFilenames()
+	clist := C.gtk_file_chooser_get_uris(v.native())
+	if clist == nil {
 		return nil, nilPtrErr
 	}
-	return glib.WrapSList(uintptr(unsafe.Pointer(c))), nil
+
+	slist := glib.WrapSList(uintptr(unsafe.Pointer(clist)))
+
+	var uris []string
+	for ; slist.DataRaw() != nil; slist = slist.Next() {
+		w := (*C.char)(slist.DataRaw())
+		uri := C.GoString(w)
+		defer C.free(unsafe.Pointer(w))
+		uris = append(uris, uri)
+	}
+
+	defer slist.Free()
+
+	return uris, nil
 }
 
 // SetDoOverwriteConfirmation is a wrapper around gtk_file_chooser_set_do_overwrite_confirmation().
@@ -4198,6 +4395,38 @@ func FileChooserButtonNew(title string, action FileChooserAction) (*FileChooserB
 	return wrapFileChooserButton(obj), nil
 }
 
+// FileChooserButtonNewWithDialog is a wrapper around gtk_file_chooser_button_new_with_dialog().
+func FileChooserButtonNewWithDialog(dialog IWidget) (*FileChooserButton, error) {
+	c := C.gtk_file_chooser_button_new_with_dialog(dialog.toWidget())
+	if c == nil {
+		return nil, nilPtrErr
+	}
+	return wrapFileChooserButton(glib.Take(unsafe.Pointer(c))), nil
+}
+
+// GetTitle is a wrapper around gtk_file_chooser_button_get_title().
+func (v *FileChooserButton) GetTitle() string {
+	// docs say: The returned value should not be modified or freed.
+	return goString(C.gtk_file_chooser_button_get_title(v.native()))
+}
+
+// SetTitle is a wrapper around gtk_file_chooser_button_set_title().
+func (v *FileChooserButton) SetTitle(title string) {
+	cstr := C.CString(title)
+	defer C.free(unsafe.Pointer(cstr))
+	C.gtk_file_chooser_button_set_title(v.native(), (*C.gchar)(cstr))
+}
+
+// GetWidthChars is a wrapper around gtk_file_chooser_button_get_width_chars().
+func (v *FileChooserButton) GetWidthChars() int {
+	return int(C.gtk_file_chooser_button_get_width_chars(v.native()))
+}
+
+// SetWidthChars is a wrapper around gtk_file_chooser_button_set_width_chars().
+func (v *FileChooserButton) SetWidthChars(width int) {
+	C.gtk_file_chooser_button_set_width_chars(v.native(), C.gint(width))
+}
+
 /*
  * GtkFileChooserDialog
  */
@@ -4237,12 +4466,18 @@ func FileChooserDialogNewWith1Button(
 	action FileChooserAction,
 	first_button_text string,
 	first_button_id ResponseType) (*FileChooserDialog, error) {
+
+	var w *C.GtkWindow = nil
+	if parent != nil {
+		w = parent.toWindow()
+	}
+
 	c_title := C.CString(title)
 	defer C.free(unsafe.Pointer(c_title))
 	c_first_button_text := C.CString(first_button_text)
 	defer C.free(unsafe.Pointer(c_first_button_text))
 	c := C.gtk_file_chooser_dialog_new_1(
-		(*C.gchar)(c_title), parent.toWindow(), C.GtkFileChooserAction(action),
+		(*C.gchar)(c_title), w, C.GtkFileChooserAction(action),
 		(*C.gchar)(c_first_button_text), C.int(first_button_id))
 	if c == nil {
 		return nil, nilPtrErr
@@ -4260,6 +4495,12 @@ func FileChooserDialogNewWith2Buttons(
 	first_button_id ResponseType,
 	second_button_text string,
 	second_button_id ResponseType) (*FileChooserDialog, error) {
+
+	var w *C.GtkWindow = nil
+	if parent != nil {
+		w = parent.toWindow()
+	}
+
 	c_title := C.CString(title)
 	defer C.free(unsafe.Pointer(c_title))
 	c_first_button_text := C.CString(first_button_text)
@@ -4267,7 +4508,7 @@ func FileChooserDialogNewWith2Buttons(
 	c_second_button_text := C.CString(second_button_text)
 	defer C.free(unsafe.Pointer(c_second_button_text))
 	c := C.gtk_file_chooser_dialog_new_2(
-		(*C.gchar)(c_title), parent.toWindow(), C.GtkFileChooserAction(action),
+		(*C.gchar)(c_title), w, C.GtkFileChooserAction(action),
 		(*C.gchar)(c_first_button_text), C.int(first_button_id),
 		(*C.gchar)(c_second_button_text), C.int(second_button_id))
 	if c == nil {
@@ -4364,6 +4605,13 @@ func (v *FileFilter) SetName(name string) {
 	C.gtk_file_filter_set_name(v.native(), (*C.gchar)(cstr))
 }
 
+// AddMimeType is a wrapper around gtk_file_filter_add_mime_type().
+func (v *FileFilter) AddMimeType(mimeType string) {
+	cstr := C.CString(mimeType)
+	defer C.free(unsafe.Pointer(cstr))
+	C.gtk_file_filter_add_mime_type(v.native(), (*C.gchar)(cstr))
+}
+
 // AddPattern is a wrapper around gtk_file_filter_add_pattern().
 func (v *FileFilter) AddPattern(pattern string) {
 	cstr := C.CString(pattern)
@@ -4456,13 +4704,12 @@ func (v *Frame) GetLabelAlign() (xAlign, yAlign float32) {
 }
 
 // GetLabelWidget is a wrapper around gtk_frame_get_label_widget().
-func (v *Frame) GetLabelWidget() (*Widget, error) {
+func (v *Frame) GetLabelWidget() (IWidget, error) {
 	c := C.gtk_frame_get_label_widget(v.native())
 	if c == nil {
-		return nil, nilPtrErr
+		return nil, nil
 	}
-	obj := glib.Take(unsafe.Pointer(c))
-	return wrapWidget(obj), nil
+	return castWidget(c)
 }
 
 // GetShadowType is a wrapper around gtk_frame_get_shadow_type().
@@ -4499,6 +4746,7 @@ func wrapAspectFrame(obj *glib.Object) *AspectFrame {
 	return &AspectFrame{Frame{Bin{Container{Widget{glib.InitiallyUnowned{obj}}}}}}
 }
 
+// AspectFrameNew is a wrapper around gtk_aspect_frame_new().
 func AspectFrameNew(label string, xalign, yalign, ratio float32, obeyChild bool) (*AspectFrame, error) {
 	var cstr *C.char
 	if label != "" {
@@ -4512,6 +4760,9 @@ func AspectFrameNew(label string, xalign, yalign, ratio float32, obeyChild bool)
 	obj := glib.Take(unsafe.Pointer(c))
 	return wrapAspectFrame(obj), nil
 }
+
+// TODO:
+// gtk_aspect_frame_set().
 
 /*
  * GtkGrid
@@ -4576,13 +4827,12 @@ func (v *Grid) AttachNextTo(child, sibling IWidget, side PositionType, width, he
 }
 
 // GetChildAt() is a wrapper around gtk_grid_get_child_at().
-func (v *Grid) GetChildAt(left, top int) (*Widget, error) {
+func (v *Grid) GetChildAt(left, top int) (IWidget, error) {
 	c := C.gtk_grid_get_child_at(v.native(), C.gint(left), C.gint(top))
 	if c == nil {
-		return nil, nilPtrErr
+		return nil, nil
 	}
-	obj := glib.Take(unsafe.Pointer(c))
-	return wrapWidget(obj), nil
+	return castWidget(c)
 }
 
 // InsertRow() is a wrapper around gtk_grid_insert_row().
@@ -4758,18 +5008,6 @@ func ImageNewFromPixbuf(pixbuf *gdk.Pixbuf) (*Image, error) {
 	return wrapImage(obj), nil
 }
 
-// TODO(jrick) GtkIconSet
-/*
-func ImageNewFromIconSet() {
-}
-*/
-
-// TODO(jrick) GdkPixbufAnimation
-/*
-func ImageNewFromAnimation() {
-}
-*/
-
 // ImageNewFromIconName() is a wrapper around gtk_image_new_from_icon_name().
 func ImageNewFromIconName(iconName string, size IconSize) (*Image, error) {
 	cstr := C.CString(iconName)
@@ -4785,6 +5023,7 @@ func ImageNewFromIconName(iconName string, size IconSize) (*Image, error) {
 
 // TODO(jrick) GIcon
 /*
+// gtk_image_new_from_gicon().
 func ImageNewFromGIcon() {
 }
 */
@@ -4814,18 +5053,6 @@ func (v *Image) SetFromPixbuf(pixbuf *gdk.Pixbuf) {
 	C.gtk_image_set_from_pixbuf(v.native(), pbptr)
 }
 
-// TODO(jrick) GtkIconSet
-/*
-func (v *Image) SetFromIconSet() {
-}
-*/
-
-// TODO(jrick) GdkPixbufAnimation
-/*
-func (v *Image) SetFromAnimation() {
-}
-*/
-
 // SetFromIconName() is a wrapper around gtk_image_set_from_icon_name().
 func (v *Image) SetFromIconName(iconName string, size IconSize) {
 	cstr := C.CString(iconName)
@@ -4836,6 +5063,7 @@ func (v *Image) SetFromIconName(iconName string, size IconSize) {
 
 // TODO(jrick) GIcon
 /*
+// gtk_image_set_from_gicon().
 func (v *Image) SetFromGIcon() {
 }
 */
@@ -4861,12 +5089,6 @@ func (v *Image) GetPixbuf() *gdk.Pixbuf {
 	pb := &gdk.Pixbuf{glib.Take(unsafe.Pointer(c))}
 	return pb
 }
-
-// TODO(jrick) GtkIconSet
-/*
-func (v *Image) GetIconSet() {
-}
-*/
 
 // GetAnimation() is a wrapper around gtk_image_get_animation()
 func (v *Image) GetAnimation() *gdk.PixbufAnimation {
@@ -4903,6 +5125,7 @@ func (v *Image) GetIconName() (string, IconSize) {
 
 // TODO(jrick) GIcon
 /*
+// gtk_image_get_gicon().
 func (v *Image) GetGIcon() {
 }
 */
@@ -4974,6 +5197,9 @@ func (v *Layout) GetSize() (width, height uint) {
 	return uint(w), uint(h)
 }
 
+// TODO:
+// gtk_layout_get_bin_window().
+
 /*
  * GtkLinkButton
  */
@@ -5040,6 +5266,67 @@ func (v *LinkButton) SetUri(uri string) {
 	C.gtk_link_button_set_uri(v.native(), (*C.gchar)(cstr))
 }
 
+// GetVisited is a wrapper around gtk_link_button_get_visited().
+func (v *LinkButton) GetVisited() bool {
+	c := C.gtk_link_button_get_visited(v.native())
+	return gobool(c)
+}
+
+// SetVisited is a wrapper around gtk_link_button_set_visited().
+func (v *LinkButton) SetVisited(visited bool) {
+	C.gtk_link_button_set_visited(v.native(), gbool(visited))
+}
+
+/*
+ * GtkLockButton
+ */
+
+// LockButton is a representation of GTK's GtkLockButton.
+type LockButton struct {
+	Button
+}
+
+// native returns a pointer to the underlying GtkLockButton.
+func (v *LockButton) native() *C.GtkLockButton {
+	if v == nil || v.GObject == nil {
+		return nil
+	}
+	p := unsafe.Pointer(v.GObject)
+	return C.toGtkLockButton(p)
+}
+
+func marshalLockButton(p uintptr) (interface{}, error) {
+	c := C.g_value_get_object((*C.GValue)(unsafe.Pointer(p)))
+	obj := glib.Take(unsafe.Pointer(c))
+	return wrapLockButton(obj), nil
+}
+
+func wrapLockButton(obj *glib.Object) *LockButton {
+	actionable := wrapActionable(obj)
+	return &LockButton{Button{Bin{Container{Widget{
+		glib.InitiallyUnowned{obj}}}}, actionable}}
+}
+
+// LockButtonNew is a wrapper around gtk_lock_button_new().
+func LockButtonNew(permission *glib.Permission) (*LockButton, error) {
+	c := C.gtk_lock_button_new(nativeGPermission(permission))
+	if c == nil {
+		return nil, nilPtrErr
+	}
+	return wrapLockButton(glib.Take(unsafe.Pointer(c))), nil
+}
+
+// GetPermission is a wrapper around gtk_lock_button_get_permission().
+func (v *LockButton) GetPermission() *glib.Permission {
+	c := C.gtk_lock_button_get_permission(v.native())
+	return glib.WrapPermission(unsafe.Pointer(c))
+}
+
+// SetPermission is a wrapper around gtk_lock_button_set_permission().
+func (v *LockButton) SetPermission(permission *glib.Permission) {
+	C.gtk_lock_button_set_permission(v.native(), nativeGPermission(permission))
+}
+
 /*
  * GtkListStore
  */
@@ -5050,6 +5337,7 @@ type ListStore struct {
 
 	// Interfaces
 	TreeModel
+	TreeSortable
 }
 
 // native returns a pointer to the underlying GtkListStore.
@@ -5069,7 +5357,8 @@ func marshalListStore(p uintptr) (interface{}, error) {
 
 func wrapListStore(obj *glib.Object) *ListStore {
 	tm := wrapTreeModel(obj)
-	return &ListStore{obj, *tm}
+	ts := wrapTreeSortable(obj)
+	return &ListStore{obj, *tm, *ts}
 }
 
 func (v *ListStore) toTreeModel() *C.GtkTreeModel {
@@ -5159,17 +5448,6 @@ func (v *ListStore) SetValue(iter *TreeIter, column int, value interface{}) erro
 //	v.TreeModel = *wrapTreeModel(obj)
 //}
 
-// SetSortColumnId() is a wrapper around gtk_tree_sortable_set_sort_column_id().
-func (v *ListStore) SetSortColumnId(column int, order SortType) {
-	sort := C.toGtkTreeSortable(unsafe.Pointer(v.Native()))
-	C.gtk_tree_sortable_set_sort_column_id(sort, C.gint(column), C.GtkSortType(order))
-}
-
-// SetSortFunc() is a wrapper around gtk_tree_sortable_set_sort_func().
-func (v *ListStore) SetSortFunc(sortColumn int, f TreeIterCompareFunc, data ...interface{}) error {
-	return v.toTreeSortable().setSortFunc(sortColumn, f, data)
-}
-
 func (v *ListStore) SetCols(iter *TreeIter, cols Cols) error {
 	for key, value := range cols {
 		err := v.SetValue(iter, key, value)
@@ -5200,7 +5478,7 @@ func (v *ListStore) InsertWithValues(iter *TreeIter, position int, inColumns []i
 			return err
 		}
 
-		var cvp *C.GValue = (*C.GValue)(gv.Native())
+		var cvp *C.GValue = (*C.GValue)(unsafe.Pointer(gv.Native()))
 		cValues = append(cValues, *cvp)
 	}
 	var cColumnsPointer = &cColumns[0]
@@ -5398,12 +5676,12 @@ func (v *MenuButton) SetAlignWidget(alignWidget IWidget) {
 }
 
 // GetAlignWidget is a wrapper around gtk_menu_button_get_align_widget().
-func (v *MenuButton) GetAlignWidget() *Widget {
+func (v *MenuButton) GetAlignWidget() (IWidget, error) {
 	c := C.gtk_menu_button_get_align_widget(v.native())
 	if c == nil {
-		return nil
+		return nil, nil
 	}
-	return wrapWidget(glib.Take(unsafe.Pointer(c)))
+	return castWidget(c)
 }
 
 /*
@@ -5470,8 +5748,7 @@ func MenuItemNewWithLabel(label string) (*MenuItem, error) {
 	return wrapMenuItem(glib.Take(unsafe.Pointer(c))), nil
 }
 
-// MenuItemNewWithMnemonic() is a wrapper around
-// gtk_menu_item_new_with_mnemonic().
+// MenuItemNewWithMnemonic() is a wrapper around gtk_menu_item_new_with_mnemonic().
 func MenuItemNewWithMnemonic(label string) (*MenuItem, error) {
 	cstr := C.CString(label)
 	defer C.free(unsafe.Pointer(cstr))
@@ -5487,14 +5764,14 @@ func (v *MenuItem) SetSubmenu(submenu IWidget) {
 	C.gtk_menu_item_set_submenu(v.native(), submenu.toWidget())
 }
 
-// Sets text on the menu_item label
+// SetLabel is a wrapper around gtk_menu_item_set_label().
 func (v *MenuItem) SetLabel(label string) {
 	cstr := C.CString(label)
 	defer C.free(unsafe.Pointer(cstr))
 	C.gtk_menu_item_set_label(v.native(), (*C.gchar)(cstr))
 }
 
-// Gets text on the menu_item label
+// GetLabel is a wrapper around gtk_menu_item_get_label().
 func (v *MenuItem) GetLabel() string {
 	l := C.gtk_menu_item_get_label(v.native())
 	return goString(l)
@@ -5510,6 +5787,16 @@ func (v *MenuItem) GetUseUnderline() bool {
 	c := C.gtk_menu_item_get_use_underline(v.native())
 	return gobool(c)
 }
+
+// TODO:
+// gtk_menu_item_get_submenu().
+// gtk_menu_item_select().
+// gtk_menu_item_deselect().
+// gtk_menu_item_activate().
+// gtk_menu_item_toggle_size_request().
+// gtk_menu_item_toggle_size_allocate().
+// gtk_menu_item_get_reserve_indicator().
+// gtk_menu_item_set_reserve_indicator().
 
 /*
  * GtkMessageDialog
@@ -5754,21 +6041,21 @@ func (v *Notebook) GetCurrentPage() int {
 }
 
 // GetMenuLabel() is a wrapper around gtk_notebook_get_menu_label().
-func (v *Notebook) GetMenuLabel(child IWidget) (*Widget, error) {
+func (v *Notebook) GetMenuLabel(child IWidget) (IWidget, error) {
 	c := C.gtk_notebook_get_menu_label(v.native(), child.toWidget())
 	if c == nil {
-		return nil, nilPtrErr
+		return nil, nil
 	}
-	return wrapWidget(glib.Take(unsafe.Pointer(c))), nil
+	return castWidget(c)
 }
 
 // GetNthPage() is a wrapper around gtk_notebook_get_nth_page().
-func (v *Notebook) GetNthPage(pageNum int) (*Widget, error) {
+func (v *Notebook) GetNthPage(pageNum int) (IWidget, error) {
 	c := C.gtk_notebook_get_nth_page(v.native(), C.gint(pageNum))
 	if c == nil {
-		return nil, nilPtrErr
+		return nil, fmt.Errorf("page %d is out of bounds", pageNum)
 	}
-	return wrapWidget(glib.Take(unsafe.Pointer(c))), nil
+	return castWidget(c)
 }
 
 // GetNPages() is a wrapper around gtk_notebook_get_n_pages().
@@ -5778,12 +6065,12 @@ func (v *Notebook) GetNPages() int {
 }
 
 // GetTabLabel() is a wrapper around gtk_notebook_get_tab_label().
-func (v *Notebook) GetTabLabel(child IWidget) (*Widget, error) {
+func (v *Notebook) GetTabLabel(child IWidget) (IWidget, error) {
 	c := C.gtk_notebook_get_tab_label(v.native(), child.toWidget())
 	if c == nil {
-		return nil, nilPtrErr
+		return nil, nil
 	}
-	return wrapWidget(glib.Take(unsafe.Pointer(c))), nil
+	return castWidget(c)
 }
 
 // SetMenuLabel() is a wrapper around gtk_notebook_set_menu_label().
@@ -5908,13 +6195,12 @@ func (v *Notebook) SetActionWidget(widget IWidget, packType PackType) {
 }
 
 // GetActionWidget() is a wrapper around gtk_notebook_get_action_widget().
-func (v *Notebook) GetActionWidget(packType PackType) (*Widget, error) {
-	c := C.gtk_notebook_get_action_widget(v.native(),
-		C.GtkPackType(packType))
+func (v *Notebook) GetActionWidget(packType PackType) (IWidget, error) {
+	c := C.gtk_notebook_get_action_widget(v.native(), C.GtkPackType(packType))
 	if c == nil {
-		return nil, nilPtrErr
+		return nil, nil
 	}
-	return wrapWidget(glib.Take(unsafe.Pointer(c))), nil
+	return castWidget(c)
 }
 
 /*
@@ -6016,13 +6302,13 @@ func wrapOrientable(obj *glib.Object) *Orientable {
 	return &Orientable{obj}
 }
 
-// GetOrientation() is a wrapper around gtk_orientable_get_orientation().
+// GetOrientation is a wrapper around gtk_orientable_get_orientation().
 func (v *Orientable) GetOrientation() Orientation {
 	c := C.gtk_orientable_get_orientation(v.native())
 	return Orientation(c)
 }
 
-// SetOrientation() is a wrapper around gtk_orientable_set_orientation().
+// SetOrientation is a wrapper around gtk_orientable_set_orientation().
 func (v *Orientable) SetOrientation(orientation Orientation) {
 	C.gtk_orientable_set_orientation(v.native(),
 		C.GtkOrientation(orientation))
@@ -6133,21 +6419,21 @@ func (v *Paned) SetPosition(position int) {
 }
 
 // GetChild1() is a wrapper around gtk_paned_get_child1().
-func (v *Paned) GetChild1() (*Widget, error) {
+func (v *Paned) GetChild1() (IWidget, error) {
 	c := C.gtk_paned_get_child1(v.native())
 	if c == nil {
-		return nil, nilPtrErr
+		return nil, nil
 	}
-	return wrapWidget(glib.Take(unsafe.Pointer(c))), nil
+	return castWidget(c)
 }
 
 // GetChild2() is a wrapper around gtk_paned_get_child2().
-func (v *Paned) GetChild2() (*Widget, error) {
+func (v *Paned) GetChild2() (IWidget, error) {
 	c := C.gtk_paned_get_child2(v.native())
 	if c == nil {
-		return nil, nilPtrErr
+		return nil, nil
 	}
-	return wrapWidget(glib.Take(unsafe.Pointer(c))), nil
+	return castWidget(c)
 }
 
 // GetHandleWindow() is a wrapper around gtk_paned_get_handle_window().
@@ -6163,6 +6449,16 @@ func (v *Paned) GetHandleWindow() (*Window, error) {
 func (v *Paned) GetPosition() int {
 	return int(C.gtk_paned_get_position(v.native()))
 }
+
+/*
+ * GtkInvisible
+ */
+
+// TODO:
+// gtk_invisible_new().
+// gtk_invisible_new_for_screen().
+// gtk_invisible_set_screen().
+// gtk_invisible_get_screen().
 
 /*
  * GtkProgressBar
@@ -6195,7 +6491,7 @@ func wrapProgressBar(obj *glib.Object) *ProgressBar {
 	return &ProgressBar{Widget{glib.InitiallyUnowned{obj}}, *o}
 }
 
-// ProgressBarNew() is a wrapper around gtk_progress_bar_new().
+// ProgressBarNew is a wrapper around gtk_progress_bar_new().
 func ProgressBarNew() (*ProgressBar, error) {
 	c := C.gtk_progress_bar_new()
 	if c == nil {
@@ -6204,12 +6500,12 @@ func ProgressBarNew() (*ProgressBar, error) {
 	return wrapProgressBar(glib.Take(unsafe.Pointer(c))), nil
 }
 
-// SetFraction() is a wrapper around gtk_progress_bar_set_fraction().
+// SetFraction is a wrapper around gtk_progress_bar_set_fraction().
 func (v *ProgressBar) SetFraction(fraction float64) {
 	C.gtk_progress_bar_set_fraction(v.native(), C.gdouble(fraction))
 }
 
-// GetFraction() is a wrapper around gtk_progress_bar_get_fraction().
+// GetFraction is a wrapper around gtk_progress_bar_get_fraction().
 func (v *ProgressBar) GetFraction() float64 {
 	c := C.gtk_progress_bar_get_fraction(v.native())
 	return float64(c)
@@ -6226,12 +6522,17 @@ func (v *ProgressBar) GetShowText() bool {
 	return gobool(c)
 }
 
-// SetText() is a wrapper around gtk_progress_bar_set_text().
+// SetText is a wrapper around gtk_progress_bar_set_text().
 func (v *ProgressBar) SetText(text string) {
 	cstr := C.CString(text)
 	defer C.free(unsafe.Pointer(cstr))
 	C.gtk_progress_bar_set_text(v.native(), (*C.gchar)(cstr))
 }
+
+// TODO:
+// gtk_progress_bar_get_text().
+// gtk_progress_bar_set_ellipsize().
+// gtk_progress_bar_get_ellipsize().
 
 // SetPulseStep is a wrapper around gtk_progress_bar_set_pulse_step().
 func (v *ProgressBar) SetPulseStep(fraction float64) {
@@ -6299,8 +6600,7 @@ func RadioButtonNew(group *glib.SList) (*RadioButton, error) {
 	return wrapRadioButton(glib.Take(unsafe.Pointer(c))), nil
 }
 
-// RadioButtonNewFromWidget is a wrapper around
-// gtk_radio_button_new_from_widget().
+// RadioButtonNewFromWidget is a wrapper around gtk_radio_button_new_from_widget().
 func RadioButtonNewFromWidget(radioGroupMember *RadioButton) (*RadioButton, error) {
 	c := C.gtk_radio_button_new_from_widget(radioGroupMember.native())
 	if c == nil {
@@ -6309,8 +6609,7 @@ func RadioButtonNewFromWidget(radioGroupMember *RadioButton) (*RadioButton, erro
 	return wrapRadioButton(glib.Take(unsafe.Pointer(c))), nil
 }
 
-// RadioButtonNewWithLabel is a wrapper around
-// gtk_radio_button_new_with_label().
+// RadioButtonNewWithLabel is a wrapper around gtk_radio_button_new_with_label().
 func RadioButtonNewWithLabel(group *glib.SList, label string) (*RadioButton, error) {
 	cstr := C.CString(label)
 	defer C.free(unsafe.Pointer(cstr))
@@ -6321,8 +6620,7 @@ func RadioButtonNewWithLabel(group *glib.SList, label string) (*RadioButton, err
 	return wrapRadioButton(glib.Take(unsafe.Pointer(c))), nil
 }
 
-// RadioButtonNewWithLabelFromWidget is a wrapper around
-// gtk_radio_button_new_with_label_from_widget().
+// RadioButtonNewWithLabelFromWidget is a wrapper around gtk_radio_button_new_with_label_from_widget().
 func RadioButtonNewWithLabelFromWidget(radioGroupMember *RadioButton, label string) (*RadioButton, error) {
 	cstr := C.CString(label)
 	defer C.free(unsafe.Pointer(cstr))
@@ -6337,8 +6635,7 @@ func RadioButtonNewWithLabelFromWidget(radioGroupMember *RadioButton, label stri
 	return wrapRadioButton(glib.Take(unsafe.Pointer(c))), nil
 }
 
-// RadioButtonNewWithMnemonic is a wrapper around
-// gtk_radio_button_new_with_mnemonic()
+// RadioButtonNewWithMnemonic is a wrapper around gtk_radio_button_new_with_mnemonic().
 func RadioButtonNewWithMnemonic(group *glib.SList, label string) (*RadioButton, error) {
 	cstr := C.CString(label)
 	defer C.free(unsafe.Pointer(cstr))
@@ -6349,8 +6646,7 @@ func RadioButtonNewWithMnemonic(group *glib.SList, label string) (*RadioButton, 
 	return wrapRadioButton(glib.Take(unsafe.Pointer(c))), nil
 }
 
-// RadioButtonNewWithMnemonicFromWidget is a wrapper around
-// gtk_radio_button_new_with_mnemonic_from_widget().
+// RadioButtonNewWithMnemonicFromWidget is a wrapper around gtk_radio_button_new_with_mnemonic_from_widget().
 func RadioButtonNewWithMnemonicFromWidget(radioGroupMember *RadioButton, label string) (*RadioButton, error) {
 	cstr := C.CString(label)
 	defer C.free(unsafe.Pointer(cstr))
@@ -6377,6 +6673,9 @@ func (v *RadioButton) GetGroup() (*glib.SList, error) {
 	if c == nil {
 		return nil, nilPtrErr
 	}
+
+	// TODO: call DataWrapper on SList and wrap them to gtk.RadioButton
+
 	return glib.WrapSList(uintptr(unsafe.Pointer(c))), nil
 }
 
@@ -6427,8 +6726,7 @@ func RadioMenuItemNew(group *glib.SList) (*RadioMenuItem, error) {
 	return wrapRadioMenuItem(glib.Take(unsafe.Pointer(c))), nil
 }
 
-// RadioMenuItemNewWithLabel is a wrapper around
-// gtk_radio_menu_item_new_with_label().
+// RadioMenuItemNewWithLabel is a wrapper around gtk_radio_menu_item_new_with_label().
 func RadioMenuItemNewWithLabel(group *glib.SList, label string) (*RadioMenuItem, error) {
 	cstr := C.CString(label)
 	defer C.free(unsafe.Pointer(cstr))
@@ -6439,8 +6737,7 @@ func RadioMenuItemNewWithLabel(group *glib.SList, label string) (*RadioMenuItem,
 	return wrapRadioMenuItem(glib.Take(unsafe.Pointer(c))), nil
 }
 
-// RadioMenuItemNewWithMnemonic is a wrapper around
-// gtk_radio_menu_item_new_with_mnemonic().
+// RadioMenuItemNewWithMnemonic is a wrapper around gtk_radio_menu_item_new_with_mnemonic().
 func RadioMenuItemNewWithMnemonic(group *glib.SList, label string) (*RadioMenuItem, error) {
 	cstr := C.CString(label)
 	defer C.free(unsafe.Pointer(cstr))
@@ -6451,8 +6748,7 @@ func RadioMenuItemNewWithMnemonic(group *glib.SList, label string) (*RadioMenuIt
 	return wrapRadioMenuItem(glib.Take(unsafe.Pointer(c))), nil
 }
 
-// RadioMenuItemNewFromWidget is a wrapper around
-// gtk_radio_menu_item_new_from_widget().
+// RadioMenuItemNewFromWidget is a wrapper around gtk_radio_menu_item_new_from_widget().
 func RadioMenuItemNewFromWidget(group *RadioMenuItem) (*RadioMenuItem, error) {
 	c := C.gtk_radio_menu_item_new_from_widget(group.native())
 	if c == nil {
@@ -6461,8 +6757,7 @@ func RadioMenuItemNewFromWidget(group *RadioMenuItem) (*RadioMenuItem, error) {
 	return wrapRadioMenuItem(glib.Take(unsafe.Pointer(c))), nil
 }
 
-// RadioMenuItemNewWithLabelFromWidget is a wrapper around
-// gtk_radio_menu_item_new_with_label_from_widget().
+// RadioMenuItemNewWithLabelFromWidget is a wrapper around gtk_radio_menu_item_new_with_label_from_widget().
 func RadioMenuItemNewWithLabelFromWidget(group *RadioMenuItem, label string) (*RadioMenuItem, error) {
 	cstr := C.CString(label)
 	defer C.free(unsafe.Pointer(cstr))
@@ -6474,8 +6769,7 @@ func RadioMenuItemNewWithLabelFromWidget(group *RadioMenuItem, label string) (*R
 	return wrapRadioMenuItem(glib.Take(unsafe.Pointer(c))), nil
 }
 
-// RadioMenuItemNewWithMnemonicFromWidget is a wrapper around
-// gtk_radio_menu_item_new_with_mnemonic_from_widget().
+// RadioMenuItemNewWithMnemonicFromWidget is a wrapper around gtk_radio_menu_item_new_with_mnemonic_from_widget().
 func RadioMenuItemNewWithMnemonicFromWidget(group *RadioMenuItem, label string) (*RadioMenuItem, error) {
 	cstr := C.CString(label)
 	defer C.free(unsafe.Pointer(cstr))
@@ -6498,6 +6792,9 @@ func (v *RadioMenuItem) GetGroup() (*glib.SList, error) {
 	if c == nil {
 		return nil, nilPtrErr
 	}
+
+	// TODO: call DataWrapper on SList and wrap them to gtk.RadioMenuItem
+
 	return glib.WrapSList(uintptr(unsafe.Pointer(c))), nil
 }
 
@@ -6529,6 +6826,16 @@ func wrapRange(obj *glib.Object) *Range {
 	return &Range{Widget{glib.InitiallyUnowned{obj}}}
 }
 
+// TODO:
+// gtk_range_get_fill_level().
+// gtk_range_get_restrict_to_fill_level().
+// gtk_range_get_show_fill_level().
+// gtk_range_set_fill_level().
+// gtk_range_set_restrict_to_fill_level().
+// gtk_range_set_show_fill_level().
+// gtk_range_get_adjustment().
+// gtk_range_set_adjustment().
+
 // GetValue is a wrapper around gtk_range_get_value().
 func (v *Range) GetValue() float64 {
 	c := C.gtk_range_get_value(v.native())
@@ -6540,26 +6847,40 @@ func (v *Range) SetValue(value float64) {
 	C.gtk_range_set_value(v.native(), C.gdouble(value))
 }
 
-// SetIncrements() is a wrapper around gtk_range_set_increments().
+// SetIncrements is a wrapper around gtk_range_set_increments().
 func (v *Range) SetIncrements(step, page float64) {
 	C.gtk_range_set_increments(v.native(), C.gdouble(step), C.gdouble(page))
 }
 
-// SetRange() is a wrapper around gtk_range_set_range().
+// SetRange is a wrapper around gtk_range_set_range().
 func (v *Range) SetRange(min, max float64) {
 	C.gtk_range_set_range(v.native(), C.gdouble(min), C.gdouble(max))
 }
 
-// GetInverted() is a wrapper around gtk_range_get_inverted().
+// GetInverted is a wrapper around gtk_range_get_inverted().
 func (v *Range) GetInverted() bool {
 	c := C.gtk_range_get_inverted(v.native())
 	return gobool(c)
 }
 
-// SetInverted() is a wrapper around gtk_range_set_inverted().
+// SetInverted is a wrapper around gtk_range_set_inverted().
 func (v *Range) SetInverted(inverted bool) {
 	C.gtk_range_set_inverted(v.native(), gbool(inverted))
 }
+
+// TODO:
+// gtk_range_get_round_digits().
+// gtk_range_set_round_digits().
+// gtk_range_set_lower_stepper_sensitivity().
+// gtk_range_get_lower_stepper_sensitivity().
+// gtk_range_set_upper_stepper_sensitivity().
+// gtk_range_get_upper_stepper_sensitivity().
+// gtk_range_get_flippable().
+// gtk_range_set_flippable().
+// gtk_range_get_range_rect().
+// gtk_range_get_slider_range().
+// gtk_range_get_slider_size_fixed().
+// gtk_range_set_slider_size_fixed().
 
 // IRecentChooser is an interface type implemented by all structs
 // embedding a RecentChooser.  It is meant to be used as an argument type
@@ -6607,6 +6928,14 @@ func (v *RecentChooser) AddFilter(filter *RecentFilter) {
 func (v *RecentChooser) RemoveFilter(filter *RecentFilter) {
 	C.gtk_recent_chooser_remove_filter(v.native(), filter.native())
 }
+
+/*
+ * GtkRecentChooserWidget
+ */
+
+// TODO:
+// gtk_recent_chooser_widget_new().
+// gtk_recent_chooser_widget_new_for_manager().
 
 /*
  * GtkRecentChooserMenu
@@ -6760,10 +7089,25 @@ func ScaleNewWithRange(orientation Orientation, min, max, step float64) (*Scale,
 	return wrapScale(glib.Take(unsafe.Pointer(c))), nil
 }
 
-// SetDrawValue() is a wrapper around gtk_scale_set_draw_value().
+// TODO:
+// gtk_scale_set_digits().
+
+// SetDrawValue is a wrapper around gtk_scale_set_draw_value().
 func (v *Scale) SetDrawValue(drawValue bool) {
 	C.gtk_scale_set_draw_value(v.native(), gbool(drawValue))
 }
+
+// TODO:
+// gtk_scale_set_has_origin().
+// gtk_scale_set_value_pos().
+// gtk_scale_get_digits().
+// gtk_scale_get_draw_value().
+// gtk_scale_get_has_origin().
+// gtk_scale_get_value_pos().
+// gtk_scale_get_layout().
+// gtk_scale_get_layout_offsets().
+// gtk_scale_add_mark().
+// gtk_scale_clear_marks().
 
 /*
  * GtkScaleButton
@@ -6774,7 +7118,7 @@ type ScaleButton struct {
 	Button
 }
 
-// native() returns a pointer to the underlying GtkScaleButton.
+// native returns a pointer to the underlying GtkScaleButton.
 func (v *ScaleButton) native() *C.GtkScaleButton {
 	if v == nil || v.GObject == nil {
 		return nil
@@ -6794,7 +7138,7 @@ func wrapScaleButton(obj *glib.Object) *ScaleButton {
 	return &ScaleButton{Button{Bin{Container{Widget{glib.InitiallyUnowned{obj}}}}, actionable}}
 }
 
-// ScaleButtonNew() is a wrapper around gtk_scale_button_new().
+// ScaleButtonNew is a wrapper around gtk_scale_button_new().
 func ScaleButtonNew(size IconSize, min, max, step float64, icons []string) (*ScaleButton, error) {
 	cicons := make([]*C.gchar, len(icons))
 	for i, icon := range icons {
@@ -6814,35 +7158,60 @@ func ScaleButtonNew(size IconSize, min, max, step float64, icons []string) (*Sca
 	return wrapScaleButton(glib.Take(unsafe.Pointer(c))), nil
 }
 
-// GetAdjustment() is a wrapper around gtk_scale_button_get_adjustment().
+// GetPopup is a wrapper around gtk_scale_button_get_popup().
+func (v *ScaleButton) GetPopup() (IWidget, error) {
+	c := C.gtk_scale_button_get_popup(v.native())
+	if c == nil {
+		return nil, nilPtrErr
+	}
+	return castWidget(c)
+}
+
+// GetValue is a wrapper around gtk_scale_button_get_value().
+func (v *ScaleButton) GetValue() float64 {
+	return float64(C.gtk_scale_button_get_value(v.native()))
+}
+
+// SetValue is a wrapper around gtk_scale_button_set_value().
+func (v *ScaleButton) SetValue(value float64) {
+	C.gtk_scale_button_set_value(v.native(), C.gdouble(value))
+}
+
+// SetIcons is a wrapper around gtk_scale_button_set_icons().
+func (v *ScaleButton) SetIcons() []string {
+	var iconNames *C.gchar = nil
+	C.gtk_scale_button_set_icons(v.native(), &iconNames)
+	return toGoStringArray(&iconNames)
+}
+
+// GetAdjustment is a wrapper around gtk_scale_button_get_adjustment().
 func (v *ScaleButton) GetAdjustment() *Adjustment {
 	c := C.gtk_scale_button_get_adjustment(v.native())
 	obj := glib.Take(unsafe.Pointer(c))
 	return &Adjustment{glib.InitiallyUnowned{obj}}
 }
 
-// GetPopup() is a wrapper around gtk_scale_button_get_popup().
-func (v *ScaleButton) GetPopup() (*Widget, error) {
-	c := C.gtk_scale_button_get_popup(v.native())
-	if c == nil {
-		return nil, nilPtrErr
-	}
-	return wrapWidget(glib.Take(unsafe.Pointer(c))), nil
-}
-
-// GetValue() is a wrapper around gtk_scale_button_get_value().
-func (v *ScaleButton) GetValue() float64 {
-	return float64(C.gtk_scale_button_get_value(v.native()))
-}
-
-// SetAdjustment() is a wrapper around gtk_scale_button_set_adjustment().
+// SetAdjustment is a wrapper around gtk_scale_button_set_adjustment().
 func (v *ScaleButton) SetAdjustment(adjustment *Adjustment) {
 	C.gtk_scale_button_set_adjustment(v.native(), adjustment.native())
 }
 
-// SetValue() is a wrapper around gtk_scale_button_set_value().
-func (v *ScaleButton) SetValue(value float64) {
-	C.gtk_scale_button_set_value(v.native(), C.gdouble(value))
+// GetPlusButton is a wrapper around gtk_scale_button_get_plus_button().
+func (v *ScaleButton) GetPlusButton() (IWidget, error) {
+	c := C.gtk_scale_button_get_plus_button(v.native())
+	if c == nil {
+		return nil, nilPtrErr
+	}
+	return castWidget(c)
+}
+
+// GetMinusButton is a wrapper around gtk_scale_button_get_minus_button().
+func (v *ScaleButton) GetMinusButton() (IWidget, error) {
+	c := C.gtk_scale_button_get_minus_button(v.native())
+	if c == nil {
+		return nil, nilPtrErr
+	}
+	return castWidget(c)
 }
 
 /*
@@ -7020,6 +7389,14 @@ func (v *ScrolledWindow) SetVAdjustment(adjustment *Adjustment) {
 	C.gtk_scrolled_window_set_vadjustment(v.native(), adjustment.native())
 }
 
+// TODO:
+// gtk_scrolled_window_get_hscrollbar().
+// gtk_scrolled_window_get_vscrollbar().
+// gtk_scrolled_window_get_policy().
+// gtk_scrolled_window_get_placement().
+// gtk_scrolled_window_set_placement().
+// gtk_scrolled_window_unset_placement().
+
 // GetShadowType is a wrapper around gtk_scrolled_window_get_shadow_type().
 func (v *ScrolledWindow) GetShadowType() ShadowType {
 	c := C.gtk_scrolled_window_get_shadow_type(v.native())
@@ -7030,6 +7407,16 @@ func (v *ScrolledWindow) GetShadowType() ShadowType {
 func (v *ScrolledWindow) SetShadowType(t ShadowType) {
 	C.gtk_scrolled_window_set_shadow_type(v.native(), C.GtkShadowType(t))
 }
+
+// TODO:
+// gtk_scrolled_window_get_kinetic_scrolling().
+// gtk_scrolled_window_set_kinetic_scrolling().
+// gtk_scrolled_window_get_capture_button_press().
+// gtk_scrolled_window_set_capture_button_press().
+// gtk_scrolled_window_get_min_content_width().
+// gtk_scrolled_window_set_min_content_width().
+// gtk_scrolled_window_get_min_content_height().
+// gtk_scrolled_window_set_min_content_height().
 
 /*
  * GtkSearchEntry
@@ -7322,6 +7709,10 @@ func (v *SizeGroup) GetWidgets() *glib.SList {
 	if c == nil {
 		return nil
 	}
+
+	// TODO: call DataWrapper on SList and wrap them to gtk.IWidget
+	// see (v *Container) GetFocusChain()
+
 	return glib.WrapSList(uintptr(unsafe.Pointer(c)))
 }
 
@@ -7354,13 +7745,13 @@ func wrapSpinButton(obj *glib.Object) *SpinButton {
 	return &SpinButton{Entry{Widget{glib.InitiallyUnowned{obj}}, *e}}
 }
 
-// Configure() is a wrapper around gtk_spin_button_configure().
+// Configure is a wrapper around gtk_spin_button_configure().
 func (v *SpinButton) Configure(adjustment *Adjustment, climbRate float64, digits uint) {
 	C.gtk_spin_button_configure(v.native(), adjustment.native(),
 		C.gdouble(climbRate), C.guint(digits))
 }
 
-// SpinButtonNew() is a wrapper around gtk_spin_button_new().
+// SpinButtonNew is a wrapper around gtk_spin_button_new().
 func SpinButtonNew(adjustment *Adjustment, climbRate float64, digits uint) (*SpinButton, error) {
 	c := C.gtk_spin_button_new(adjustment.native(),
 		C.gdouble(climbRate), C.guint(digits))
@@ -7370,8 +7761,7 @@ func SpinButtonNew(adjustment *Adjustment, climbRate float64, digits uint) (*Spi
 	return wrapSpinButton(glib.Take(unsafe.Pointer(c))), nil
 }
 
-// SpinButtonNewWithRange() is a wrapper around
-// gtk_spin_button_new_with_range().
+// SpinButtonNewWithRange is a wrapper around gtk_spin_button_new_with_range().
 func SpinButtonNewWithRange(min, max, step float64) (*SpinButton, error) {
 	c := C.gtk_spin_button_new_with_range(C.gdouble(min), C.gdouble(max),
 		C.gdouble(step))
@@ -7381,10 +7771,29 @@ func SpinButtonNewWithRange(min, max, step float64) (*SpinButton, error) {
 	return wrapSpinButton(glib.Take(unsafe.Pointer(c))), nil
 }
 
-// GetValueAsInt() is a wrapper around gtk_spin_button_get_value_as_int().
-func (v *SpinButton) GetValueAsInt() int {
-	c := C.gtk_spin_button_get_value_as_int(v.native())
-	return int(c)
+// TODO:
+// gtk_spin_button_set_adjustment().
+
+// GetAdjustment() is a wrapper around gtk_spin_button_get_adjustment
+func (v *SpinButton) GetAdjustment() *Adjustment {
+	c := C.gtk_spin_button_get_adjustment(v.native())
+	if c == nil {
+		return nil
+	}
+	return wrapAdjustment(glib.Take(unsafe.Pointer(c)))
+}
+
+// TODO:
+// gtk_spin_button_set_digits().
+
+// SetIncrements() is a wrapper around gtk_spin_button_set_increments().
+func (v *SpinButton) SetIncrements(step, page float64) {
+	C.gtk_spin_button_set_increments(v.native(), C.gdouble(step), C.gdouble(page))
+}
+
+// SetRange is a wrapper around gtk_spin_button_set_range().
+func (v *SpinButton) SetRange(min, max float64) {
+	C.gtk_spin_button_set_range(v.native(), C.gdouble(min), C.gdouble(max))
 }
 
 // SetValue() is a wrapper around gtk_spin_button_set_value().
@@ -7398,24 +7807,25 @@ func (v *SpinButton) GetValue() float64 {
 	return float64(c)
 }
 
-// GetAdjustment() is a wrapper around gtk_spin_button_get_adjustment
-func (v *SpinButton) GetAdjustment() *Adjustment {
-	c := C.gtk_spin_button_get_adjustment(v.native())
-	if c == nil {
-		return nil
-	}
-	return wrapAdjustment(glib.Take(unsafe.Pointer(c)))
+// GetValueAsInt is a wrapper around gtk_spin_button_get_value_as_int().
+func (v *SpinButton) GetValueAsInt() int {
+	c := C.gtk_spin_button_get_value_as_int(v.native())
+	return int(c)
 }
 
-// SetRange is a wrapper around gtk_spin_button_set_range().
-func (v *SpinButton) SetRange(min, max float64) {
-	C.gtk_spin_button_set_range(v.native(), C.gdouble(min), C.gdouble(max))
-}
-
-// SetIncrements() is a wrapper around gtk_spin_button_set_increments().
-func (v *SpinButton) SetIncrements(step, page float64) {
-	C.gtk_spin_button_set_increments(v.native(), C.gdouble(step), C.gdouble(page))
-}
+// gtk_spin_button_set_update_policy().
+// gtk_spin_button_set_numeric().
+// gtk_spin_button_spin().
+// gtk_spin_button_set_wrap().
+// gtk_spin_button_set_snap_to_ticks().
+// gtk_spin_button_update().
+// gtk_spin_button_get_digits().
+// gtk_spin_button_get_increments().
+// gtk_spin_button_get_numeric().
+// gtk_spin_button_get_range().
+// gtk_spin_button_get_snap_to_ticks().
+// gtk_spin_button_get_update_policy().
+// gtk_spin_button_get_wrap().
 
 /*
  * GtkSpinner
@@ -8200,6 +8610,22 @@ func (v *ToggleButton) SetMode(drawIndicator bool) {
 	C.gtk_toggle_button_set_mode(v.native(), gbool(drawIndicator))
 }
 
+// Toggled is a wrapper around gtk_toggle_button_toggled().
+func (v *ToggleButton) Toggled() {
+	C.gtk_toggle_button_toggled(v.native())
+}
+
+// GetInconsistent gtk_toggle_button_get_inconsistent().
+func (v *ToggleButton) GetInconsistent() bool {
+	c := C.gtk_toggle_button_get_inconsistent(v.native())
+	return gobool(c)
+}
+
+// SetInconsistent gtk_toggle_button_set_inconsistent().
+func (v *ToggleButton) SetInconsistent(setting bool) {
+	C.gtk_toggle_button_set_inconsistent(v.native(), gbool(setting))
+}
+
 /*
  * GtkToolbar
  */
@@ -8269,8 +8695,7 @@ func (v *Toolbar) GetDropIndex(x, y int) int {
 	return int(c)
 }
 
-// SetDropHighlightItem is a wrapper around
-// gtk_toolbar_set_drop_highlight_item().
+// SetDropHighlightItem is a wrapper around gtk_toolbar_set_drop_highlight_item().
 func (v *Toolbar) SetDropHighlightItem(toolItem IToolItem, index int) {
 	C.gtk_toolbar_set_drop_highlight_item(v.native(),
 		toolItem.toToolItem(), C.gint(index))
@@ -8409,12 +8834,12 @@ func (v *ToolButton) SetIconWidget(iconWidget IWidget) {
 }
 
 // GetIconWidget is a wrapper around gtk_tool_button_get_icon_widget().
-func (v *ToolButton) GetIconWidget() *Widget {
+func (v *ToolButton) GetIconWidget() (IWidget, error) {
 	c := C.gtk_tool_button_get_icon_widget(v.native())
 	if c == nil {
-		return nil
+		return nil, nil
 	}
-	return wrapWidget(glib.Take(unsafe.Pointer(c)))
+	return castWidget(c)
 }
 
 // SetLabelWidget is a wrapper around gtk_tool_button_set_label_widget().
@@ -8423,12 +8848,12 @@ func (v *ToolButton) SetLabelWidget(labelWidget IWidget) {
 }
 
 // GetLabelWidget is a wrapper around gtk_tool_button_get_label_widget().
-func (v *ToolButton) GetLabelWidget() *Widget {
+func (v *ToolButton) GetLabelWidget() (IWidget, error) {
 	c := C.gtk_tool_button_get_label_widget(v.native())
 	if c == nil {
-		return nil
+		return nil, nil
 	}
-	return wrapWidget(glib.Take(unsafe.Pointer(c)))
+	return castWidget(c)
 }
 
 /*
@@ -8575,15 +9000,13 @@ func (v *ToolItem) GetUseDragWindow() bool {
 	return gobool(c)
 }
 
-// SetVisibleHorizontal is a wrapper around
-// gtk_tool_item_set_visible_horizontal().
+// SetVisibleHorizontal is a wrapper around gtk_tool_item_set_visible_horizontal().
 func (v *ToolItem) SetVisibleHorizontal(visibleHorizontal bool) {
 	C.gtk_tool_item_set_visible_horizontal(v.native(),
 		gbool(visibleHorizontal))
 }
 
-// GetVisibleHorizontal is a wrapper around
-// gtk_tool_item_get_visible_horizontal().
+// GetVisibleHorizontal is a wrapper around gtk_tool_item_get_visible_horizontal().
 func (v *ToolItem) GetVisibleHorizontal() bool {
 	c := C.gtk_tool_item_get_visible_horizontal(v.native())
 	return gobool(c)
@@ -8626,7 +9049,7 @@ func (v *ToolItem) GetOrientation() Orientation {
 }
 
 // GetToolbarStyle is a wrapper around gtk_tool_item_get_toolbar_style().
-func (v *ToolItem) gtk_tool_item_get_toolbar_style() ToolbarStyle {
+func (v *ToolItem) GetToolbarStyle() ToolbarStyle {
 	c := C.gtk_tool_item_get_toolbar_style(v.native())
 	return ToolbarStyle(c)
 }
@@ -8649,8 +9072,7 @@ func (v *ToolItem) GetTextOrientation() Orientation {
 	return Orientation(c)
 }
 
-// RetrieveProxyMenuItem is a wrapper around
-// gtk_tool_item_retrieve_proxy_menu_item()
+// RetrieveProxyMenuItem is a wrapper around gtk_tool_item_retrieve_proxy_menu_item()
 func (v *ToolItem) RetrieveProxyMenuItem() *MenuItem {
 	c := C.gtk_tool_item_retrieve_proxy_menu_item(v.native())
 	if c == nil {
@@ -8658,6 +9080,9 @@ func (v *ToolItem) RetrieveProxyMenuItem() *MenuItem {
 	}
 	return wrapMenuItem(glib.Take(unsafe.Pointer(c)))
 }
+
+// TODO:
+// gtk_tool_item_get_proxy_menu_item().
 
 // SetProxyMenuItem is a wrapper around gtk_tool_item_set_proxy_menu_item().
 func (v *ToolItem) SetProxyMenuItem(menuItemId string, menuItem IMenuItem) {
@@ -8678,6 +9103,56 @@ func (v *ToolItem) ToolbarReconfigured() {
 }
 
 // TODO: gtk_tool_item_get_text_size_group
+
+/*
+ * GtkToolItemGroup
+ */
+
+// TODO:
+// gtk_tool_item_group_get_collapsed().
+// gtk_tool_item_group_get_drop_item().
+// gtk_tool_item_group_get_ellipsize().
+// gtk_tool_item_group_get_item_position().
+// gtk_tool_item_group_get_n_items().
+// gtk_tool_item_group_get_label().
+// gtk_tool_item_group_get_label_widget().
+// gtk_tool_item_group_get_nth_item().
+// gtk_tool_item_group_get_header_relief().
+// gtk_tool_item_group_insert().
+// gtk_tool_item_group_new().
+// gtk_tool_item_group_set_collapsed().
+// gtk_tool_item_group_set_ellipsize().
+// gtk_tool_item_group_set_item_position().
+// gtk_tool_item_group_set_label().
+// gtk_tool_item_group_set_label_widget().
+// gtk_tool_item_group_set_header_relief().
+
+/*
+ * GtkToolPalette
+ */
+
+// TODO:
+// gtk_tool_palette_new().
+// gtk_tool_palette_get_exclusive().
+// gtk_tool_palette_set_exclusive().
+// gtk_tool_palette_get_expand().
+// gtk_tool_palette_set_expand().
+// gtk_tool_palette_get_group_position().
+// gtk_tool_palette_set_group_position().
+// gtk_tool_palette_get_icon_size().
+// gtk_tool_palette_set_icon_size().
+// gtk_tool_palette_unset_icon_size().
+// gtk_tool_palette_get_style().
+// gtk_tool_palette_set_style().
+// gtk_tool_palette_unset_style().
+// gtk_tool_palette_add_drag_dest().
+// gtk_tool_palette_get_drag_item().
+// gtk_tool_palette_get_drag_target_group().
+// gtk_tool_palette_get_drag_target_item().
+// gtk_tool_palette_get_drop_group().
+// gtk_tool_palette_get_drop_item().
+// gtk_tool_palette_set_drag_source().
+// GtkToolPaletteDragTargets
 
 /*
  * GtkTreeIter
@@ -8731,6 +9206,7 @@ type TreeModel struct {
 // GtkTreeModel.
 type ITreeModel interface {
 	toTreeModel() *C.GtkTreeModel
+	ToTreeModel() *TreeModel
 }
 
 // native returns a pointer to the underlying GObject as a GtkTreeModel.
@@ -8757,6 +9233,12 @@ func marshalTreeModel(p uintptr) (interface{}, error) {
 
 func wrapTreeModel(obj *glib.Object) *TreeModel {
 	return &TreeModel{obj}
+}
+
+// ToTreeModel is a helper getter, e.g.: it returns *gtk.TreeStore/ListStore as a *gtk.TreeModel.
+// In other cases, where you have a gtk.ITreeModel, use the type assertion.
+func (v *TreeModel) ToTreeModel() *TreeModel {
+	return v
 }
 
 // GetFlags() is a wrapper around gtk_tree_model_get_flags().
@@ -8832,7 +9314,7 @@ func (v *TreeModel) GetValue(iter *TreeIter, column int) (*glib.Value, error) {
 		return nil, err
 	}
 	C.gtk_tree_model_get_value(
-		(*C.GtkTreeModel)(unsafe.Pointer(v.native())),
+		v.native(),
 		iter.native(),
 		C.gint(column),
 		(*C.GValue)(unsafe.Pointer(val.Native())))
@@ -8902,11 +9384,11 @@ func (v *TreeModel) FilterNew(root *TreePath) (*TreeModelFilter, error) {
 
 // TreeModelForeachFunc defines the function prototype for the foreach function (f arg) for
 // (* TreeModel).ForEach
-type TreeModelForeachFunc func(model *TreeModel, path *TreePath, iter *TreeIter, userData interface{}) bool
+type TreeModelForeachFunc func(model *TreeModel, path *TreePath, iter *TreeIter, userData ...interface{}) bool
 
 type treeModelForeachFuncData struct {
 	fn       TreeModelForeachFunc
-	userData interface{}
+	userData []interface{}
 }
 
 var (
@@ -8921,23 +9403,19 @@ var (
 )
 
 // ForEach() is a wrapper around gtk_tree_model_foreach ()
-func (v *TreeModel) ForEach(f TreeModelForeachFunc, userData ...interface{}) error {
-	if len(userData) > 1 {
-		return errors.New("userData len must be 0 or 1")
-	}
-
-	t := treeModelForeachFuncData{fn: f}
-	if len(userData) > 0 {
-		t.userData = userData[0]
-	}
+func (v *TreeModel) ForEach(f TreeModelForeachFunc, userData ...interface{}) {
 	treeModelForeachFuncRegistry.Lock()
 	id := treeModelForeachFuncRegistry.next
 	treeModelForeachFuncRegistry.next++
-	treeModelForeachFuncRegistry.m[id] = t
+	treeModelForeachFuncRegistry.m[id] = treeModelForeachFuncData{fn: f, userData: userData}
 	treeModelForeachFuncRegistry.Unlock()
 
 	C._gtk_tree_model_foreach(v.toTreeModel(), C.gpointer(uintptr(id)))
-	return nil
+
+	// Clean up callback immediately as we only need it for the duration of this Foreach call
+	treeModelForeachFuncRegistry.Lock()
+	delete(treeModelForeachFuncRegistry.m, id)
+	treeModelForeachFuncRegistry.Unlock()
 }
 
 /*
@@ -8983,6 +9461,25 @@ func (v *TreeModelFilter) SetVisibleColumn(column int) {
 	C.gtk_tree_model_filter_set_visible_column(v.native(), C.gint(column))
 }
 
+// ConvertChildPathToPath is a wrapper around gtk_tree_model_filter_convert_child_path_to_path().
+func (v *TreeModelFilter) ConvertChildPathToPath(childPath *TreePath) *TreePath {
+	path := C.gtk_tree_model_filter_convert_child_path_to_path(v.native(), childPath.native())
+	if path == nil {
+		return nil
+	}
+	p := &TreePath{path}
+	runtime.SetFinalizer(p, (*TreePath).free)
+	return p
+}
+
+// ConvertChildIterToIter is a wrapper around gtk_tree_model_filter_convert_child_iter_to_iter().
+func (v *TreeModelFilter) ConvertChildIterToIter(childIter *TreeIter) (*TreeIter, bool) {
+	var iter C.GtkTreeIter
+	ok := gobool(C.gtk_tree_model_filter_convert_child_iter_to_iter(v.native(), &iter, childIter.native()))
+	t := &TreeIter{iter}
+	return t, ok
+}
+
 // ConvertIterToChildIter is a wrapper around gtk_tree_model_filter_convert_child_iter_to_iter().
 func (v *TreeModelFilter) ConvertIterToChildIter(filterIter *TreeIter) *TreeIter {
 	var iter C.GtkTreeIter
@@ -8997,10 +9494,8 @@ func (v *TreeModelFilter) ConvertPathToChildPath(filterPath *TreePath) *TreePath
 	if path == nil {
 		return nil
 	}
-
 	p := &TreePath{path}
 	runtime.SetFinalizer(p, (*TreePath).free)
-
 	return p
 }
 
@@ -9011,11 +9506,11 @@ func (v *TreeModelFilter) Refilter() {
 
 // TreeModelFilterVisibleFunc defines the function prototype for the filter visibility function (f arg)
 // to TreeModelFilter.SetVisibleFunc.
-type TreeModelFilterVisibleFunc func(model *TreeModelFilter, iter *TreeIter, userData interface{}) bool
+type TreeModelFilterVisibleFunc func(model *TreeModelFilter, iter *TreeIter, userData ...interface{}) bool
 
 type treeModelFilterVisibleFuncData struct {
 	fn       TreeModelFilterVisibleFunc
-	userData interface{}
+	userData []interface{}
 }
 
 var (
@@ -9030,23 +9525,15 @@ var (
 )
 
 // SetVisibleFunc is a wrapper around gtk_tree_model_filter_set_visible_func().
-func (v *TreeModelFilter) SetVisibleFunc(f TreeModelFilterVisibleFunc, userData ...interface{}) error {
-	if len(userData) > 1 {
-		return errors.New("userData len must be 0 or 1")
-	}
-
-	t := treeModelFilterVisibleFuncData{fn: f}
-	if len(userData) > 0 {
-		t.userData = userData[0]
-	}
+func (v *TreeModelFilter) SetVisibleFunc(f TreeModelFilterVisibleFunc, userData ...interface{}) {
+	// TODO: figure out a way to determine when we can clean up
 	treeModelVisibleFilterFuncRegistry.Lock()
 	id := treeModelVisibleFilterFuncRegistry.next
 	treeModelVisibleFilterFuncRegistry.next++
-	treeModelVisibleFilterFuncRegistry.m[id] = t
+	treeModelVisibleFilterFuncRegistry.m[id] = treeModelFilterVisibleFuncData{fn: f, userData: userData}
 	treeModelVisibleFilterFuncRegistry.Unlock()
 
 	C._gtk_tree_model_filter_set_visible_func(v.native(), C.gpointer(uintptr(id)))
-	return nil
 }
 
 // Down() is a wrapper around gtk_tree_path_down()
@@ -9323,17 +9810,16 @@ func (v *TreeSelection) UnselectRange(start, end *TreePath) {
 
 // PathIsSelected() is a wrapper around gtk_tree_selection_path_is_selected().
 func (v *TreeSelection) PathIsSelected(path *TreePath) bool {
-	
 	return gobool(C.gtk_tree_selection_path_is_selected(v.native(), path.native()))
 }
 
 // TreeSelectionForeachFunc defines the function prototype for the selected_foreach function (f arg) for
 // (* TreeSelection).SelectedForEach
-type TreeSelectionForeachFunc func(model *TreeModel, path *TreePath, iter *TreeIter, userData interface{})
+type TreeSelectionForeachFunc func(model *TreeModel, path *TreePath, iter *TreeIter, userData ...interface{})
 
 type treeSelectionForeachFuncData struct {
 	fn       TreeSelectionForeachFunc
-	userData interface{}
+	userData []interface{}
 }
 
 var (
@@ -9348,23 +9834,19 @@ var (
 )
 
 // SelectedForEach() is a wrapper around gtk_tree_selection_selected_foreach()
-func (v *TreeSelection) SelectedForEach(f TreeSelectionForeachFunc, userData ...interface{}) error {
-	if len(userData) > 1 {
-		return errors.New("userData len must be 0 or 1")
-	}
-
-	t := treeSelectionForeachFuncData{fn: f}
-	if len(userData) > 0 {
-		t.userData = userData[0]
-	}
+func (v *TreeSelection) SelectedForEach(f TreeSelectionForeachFunc, userData ...interface{}) {
 	treeSelectionForeachFuncRegistry.Lock()
 	id := treeSelectionForeachFuncRegistry.next
 	treeSelectionForeachFuncRegistry.next++
-	treeSelectionForeachFuncRegistry.m[id] = t
+	treeSelectionForeachFuncRegistry.m[id] = treeSelectionForeachFuncData{fn: f, userData: userData}
 	treeSelectionForeachFuncRegistry.Unlock()
 
 	C._gtk_tree_selection_selected_foreach(v.native(), C.gpointer(uintptr(id)))
-	return nil
+
+	// Clean up callback immediately as we only need it for the duration of this Foreach call
+	treeSelectionForeachFuncRegistry.Lock()
+	delete(treeSelectionForeachFuncRegistry.m, id)
+	treeSelectionForeachFuncRegistry.Unlock()
 }
 
 /*
@@ -9410,19 +9892,247 @@ func (v *TreeRowReference) GetPath() *TreePath {
 }
 
 // GetModel is a wrapper around gtk_tree_row_reference_get_path.
-func (v *TreeRowReference) GetModel() ITreeModel {
+func (v *TreeRowReference) GetModel() (ITreeModel, error) {
 	c := C.gtk_tree_row_reference_get_model(v.native())
 	if c == nil {
-		return nil
+		return nil, nilPtrErr
 	}
-	m := wrapTreeModel(glib.Take(unsafe.Pointer(c)))
-	return m
+	return castTreeModel(c)
 }
 
 // Valid is a wrapper around gtk_tree_row_reference_valid.
 func (v *TreeRowReference) Valid() bool {
 	c := C.gtk_tree_row_reference_valid(v.native())
 	return gobool(c)
+}
+
+/*
+ * GtkTreeSortable
+ */
+
+// TreeSortable is a representation of GTK's GtkTreeSortable
+type TreeSortable struct {
+	*glib.Object
+}
+
+// ITreeSortable is an interface type implemented by all structs
+// embedding a TreeSortable.  It is meant to be used as an argument type
+// for wrapper functions that wrap around a C GTK function taking a
+// GtkTreeSortable.
+type ITreeSortable interface {
+	toTreeSortable() *C.GtkTreeSortable
+}
+
+// native returns a pointer to the underlying GtkTreeSortable
+func (v *TreeSortable) native() *C.GtkTreeSortable {
+	if v == nil || v.GObject == nil {
+		return nil
+	}
+	p := unsafe.Pointer(v.GObject)
+	return C.toGtkTreeSortable(p)
+}
+
+func (v *TreeSortable) toTreeSortable() *C.GtkTreeSortable {
+	if v == nil {
+		return nil
+	}
+	return v.native()
+}
+
+func marshalTreeSortable(p uintptr) (interface{}, error) {
+	c := C.g_value_get_object((*C.GValue)(unsafe.Pointer(p)))
+	obj := glib.Take(unsafe.Pointer(c))
+	return wrapTreeSortable(obj), nil
+}
+
+func wrapTreeSortable(obj *glib.Object) *TreeSortable {
+	return &TreeSortable{obj}
+}
+
+// TreeIterCompareFunc is a representation of GtkTreeIterCompareFunc.
+// It defines the function prototype for the sort function (f arg) for (* TreeSortable).SetSortFunc
+type TreeIterCompareFunc func(model *TreeModel, a, b *TreeIter, userData ...interface{}) int
+
+// GetSortColumnId() is a wrapper around gtk_tree_sortable_get_sort_column_id().
+func (v *TreeSortable) GetSortColumnId() (int, SortType, bool) {
+	var column C.gint
+	var order C.GtkSortType
+	ok := gobool(C.gtk_tree_sortable_get_sort_column_id(v.native(), &column, &order))
+	return int(column), SortType(order), ok
+}
+
+type treeStoreSortFuncData struct {
+	fn       TreeIterCompareFunc
+	userData []interface{}
+}
+
+var (
+	treeStoreSortFuncRegistry = struct {
+		sync.RWMutex
+		next int
+		m    map[int]treeStoreSortFuncData
+	}{
+		next: 1,
+		m:    make(map[int]treeStoreSortFuncData),
+	}
+)
+
+// SetSortColumnId() is a wrapper around gtk_tree_sortable_set_sort_column_id().
+func (v *TreeSortable) SetSortColumnId(column int, order SortType) {
+	C.gtk_tree_sortable_set_sort_column_id(v.native(), C.gint(column), C.GtkSortType(order))
+}
+
+// SetSortFunc() is a wrapper around gtk_tree_sortable_set_sort_func().
+func (v *TreeSortable) SetSortFunc(sortColumn int, f TreeIterCompareFunc, userData ...interface{}) {
+	// TODO: figure out a way to determine when we can clean up
+	treeStoreSortFuncRegistry.Lock()
+	id := treeStoreSortFuncRegistry.next
+	treeStoreSortFuncRegistry.next++
+	treeStoreSortFuncRegistry.m[id] = treeStoreSortFuncData{fn: f, userData: userData}
+	treeStoreSortFuncRegistry.Unlock()
+
+	C._gtk_tree_sortable_set_sort_func(v.native(), C.gint(sortColumn), C.gpointer(uintptr(id)))
+}
+
+// SetDefaultSortFunc() is a wrapper around gtk_tree_sortable_set_default_sort_func().
+func (v *TreeSortable) SetDefaultSortFunc(f TreeIterCompareFunc, userData ...interface{}) {
+	// TODO: figure out a way to determine when we can clean up
+	treeStoreSortFuncRegistry.Lock()
+	id := treeStoreSortFuncRegistry.next
+	treeStoreSortFuncRegistry.next++
+	treeStoreSortFuncRegistry.m[id] = treeStoreSortFuncData{fn: f, userData: userData}
+	treeStoreSortFuncRegistry.Unlock()
+
+	C._gtk_tree_sortable_set_default_sort_func(v.native(), C.gpointer(uintptr(id)))
+}
+
+func (v *TreeSortable) HasDefaultSortFunc() bool {
+	return gobool(C.gtk_tree_sortable_has_default_sort_func(v.native()))
+}
+
+/*
+ * GtkTreeModelSort
+ */
+
+// TreeModelSort is a representation of GTK's GtkTreeModelSort
+type TreeModelSort struct {
+	*glib.Object
+
+	// Interfaces
+	TreeModel
+	TreeSortable
+}
+
+// native returns a pointer to the underlying GtkTreeModelSort
+func (v *TreeModelSort) native() *C.GtkTreeModelSort {
+	if v == nil || v.GObject == nil {
+		return nil
+	}
+	p := unsafe.Pointer(v.GObject)
+	return C.toGtkTreeModelSort(p)
+}
+
+func marshalTreeModelSort(p uintptr) (interface{}, error) {
+	c := C.g_value_get_object((*C.GValue)(unsafe.Pointer(p)))
+	obj := glib.Take(unsafe.Pointer(c))
+	return wrapTreeModelSort(obj), nil
+}
+
+func wrapTreeModelSort(obj *glib.Object) *TreeModelSort {
+	tm := wrapTreeModel(obj)
+	ts := wrapTreeSortable(obj)
+	return &TreeModelSort{obj, *tm, *ts}
+}
+
+func (v *TreeModelSort) toTreeModel() *C.GtkTreeModel {
+	if v == nil {
+		return nil
+	}
+	return C.toGtkTreeModel(unsafe.Pointer(v.GObject))
+}
+
+func (v *TreeModelSort) toTreeSortable() *C.GtkTreeSortable {
+	if v == nil {
+		return nil
+	}
+	return C.toGtkTreeSortable(unsafe.Pointer(v.GObject))
+}
+
+// TreeModelSortNew is a wrapper around gtk_tree_model_sort_new_with_model():
+func TreeModelSortNew(model ITreeModel) (*TreeModelSort, error) {
+	var mptr *C.GtkTreeModel
+	if model != nil {
+		mptr = model.toTreeModel()
+	}
+	c := C.gtk_tree_model_sort_new_with_model(mptr)
+	if c == nil {
+		return nil, nilPtrErr
+	}
+
+	tms := wrapTreeModelSort(glib.Take(unsafe.Pointer(c)))
+	return tms, nil
+}
+
+// GetModel is a wrapper around gtk_tree_model_sort_get_model()
+func (v *TreeModelSort) GetModel() (ITreeModel, error) {
+	c := C.gtk_tree_model_sort_get_model(v.native())
+	if c == nil {
+		return nil, nilPtrErr
+	}
+	return castTreeModel(c)
+}
+
+// ConvertChildPathToPath is a wrapper around gtk_tree_model_sort_convert_child_path_to_path().
+func (v *TreeModelSort) ConvertChildPathToPath(childPath *TreePath) *TreePath {
+	path := C.gtk_tree_model_sort_convert_child_path_to_path(v.native(), childPath.native())
+	if path == nil {
+		return nil
+	}
+	p := &TreePath{path}
+	runtime.SetFinalizer(p, (*TreePath).free)
+	return p
+}
+
+// ConvertChildIterToIter is a wrapper around gtk_tree_model_sort_convert_child_iter_to_iter().
+func (v *TreeModelSort) ConvertChildIterToIter(childIter *TreeIter) (*TreeIter, bool) {
+	var iter C.GtkTreeIter
+	ok := gobool(C.gtk_tree_model_sort_convert_child_iter_to_iter(v.native(), &iter, childIter.native()))
+	t := &TreeIter{iter}
+	return t, ok
+}
+
+// ConvertPathToChildPath is a wrapper around gtk_tree_model_sort_convert_path_to_child_path().
+func (v *TreeModelSort) ConvertPathToChildPath(sortPath *TreePath) *TreePath {
+	path := C.gtk_tree_model_sort_convert_path_to_child_path(v.native(), sortPath.native())
+	if path == nil {
+		return nil
+	}
+	p := &TreePath{path}
+	runtime.SetFinalizer(p, (*TreePath).free)
+	return p
+}
+
+// ConvertIterToChildIter is a wrapper around gtk_tree_model_sort_convert_iter_to_child_iter().
+func (v *TreeModelSort) ConvertIterToChildIter(sortIter *TreeIter) *TreeIter {
+	var iter C.GtkTreeIter
+	C.gtk_tree_model_sort_convert_iter_to_child_iter(v.native(), &iter, sortIter.native())
+	t := &TreeIter{iter}
+	return t
+}
+
+// ResetDefaultSortFunc is a wrapper around gtk_tree_model_sort_reset_default_sort_func().
+func (v *TreeModelSort) ResetDefaultSortFunc() {
+	C.gtk_tree_model_sort_reset_default_sort_func(v.native())
+}
+
+// ClearCache is a wrapper around gtk_tree_model_sort_clear_cache().
+func (v *TreeModelSort) ClearCache() {
+	C.gtk_tree_model_sort_clear_cache(v.native())
+}
+
+// IterIsValid is a wrapper around gtk_tree_model_sort_iter_is_valid().
+func (v *TreeModelSort) IterIsValid(iter *TreeIter) bool {
+	return gobool(C.gtk_tree_model_sort_iter_is_valid(v.native(), iter.native()))
 }
 
 /*
@@ -9435,6 +10145,7 @@ type TreeStore struct {
 
 	// Interfaces
 	TreeModel
+	TreeSortable
 }
 
 // native returns a pointer to the underlying GtkTreeStore.
@@ -9454,7 +10165,8 @@ func marshalTreeStore(p uintptr) (interface{}, error) {
 
 func wrapTreeStore(obj *glib.Object) *TreeStore {
 	tm := wrapTreeModel(obj)
-	return &TreeStore{obj, *tm}
+	ts := wrapTreeSortable(obj)
+	return &TreeStore{obj, *tm, *ts}
 }
 
 func (v *TreeStore) toTreeModel() *C.GtkTreeModel {
@@ -9462,6 +10174,13 @@ func (v *TreeStore) toTreeModel() *C.GtkTreeModel {
 		return nil
 	}
 	return C.toGtkTreeModel(unsafe.Pointer(v.GObject))
+}
+
+func (v *TreeStore) toTreeSortable() *C.GtkTreeSortable {
+	if v == nil {
+		return nil
+	}
+	return C.toGtkTreeSortable(unsafe.Pointer(v.GObject))
 }
 
 // TreeStoreNew is a wrapper around gtk_tree_store_newv().
@@ -9488,6 +10207,18 @@ func (v *TreeStore) Append(parent *TreeIter) *TreeIter {
 		cParent = parent.native()
 	}
 	C.gtk_tree_store_append(v.native(), &ti, cParent)
+	iter := &TreeIter{ti}
+	return iter
+}
+
+// Prepend is a wrapper around gtk_tree_store_prepend().
+func (v *TreeStore) Prepend(parent *TreeIter) *TreeIter {
+	var ti C.GtkTreeIter
+	var cParent *C.GtkTreeIter
+	if parent != nil {
+		cParent = parent.native()
+	}
+	C.gtk_tree_store_prepend(v.native(), &ti, cParent)
 	iter := &TreeIter{ti}
 	return iter
 }
@@ -9570,7 +10301,7 @@ func (v *TreeStore) InsertWithValues(iter, parent *TreeIter, position int, inCol
 			return err
 		}
 
-		var cvp *C.GValue = (*C.GValue)(gv.Native())
+		var cvp *C.GValue = (*C.GValue)(unsafe.Pointer(gv.Native()))
 		cValues = append(cValues, *cvp)
 	}
 	var cColumnsPointer *C.gint = &cColumns[0]
@@ -9581,58 +10312,21 @@ func (v *TreeStore) InsertWithValues(iter, parent *TreeIter, position int, inCol
 	return nil
 }
 
-/*
- * TreeSortable
- */
-
-// TreeSortable is a representation of GTK's GtkTreeSortable Interface.
-type TreeSortable interface {
-	SetSortColumnId(column int, order SortType)
+// MoveBefore is a wrapper around gtk_tree_store_move_before().
+func (v *TreeStore) MoveBefore(iter, position *TreeIter) {
+	C.gtk_tree_store_move_before(v.native(), iter.native(),
+		position.native())
 }
 
-// SetSortColumnId() is a wrapper around gtk_tree_sortable_set_sort_column_id().
-func (v *TreeStore) SetSortColumnId(column int, order SortType) {
-	sort := C.toGtkTreeSortable(unsafe.Pointer(v.Native()))
-	C.gtk_tree_sortable_set_sort_column_id(sort, C.gint(column), C.GtkSortType(order))
+// MoveAfter is a wrapper around gtk_tree_store_move_after().
+func (v *TreeStore) MoveAfter(iter, position *TreeIter) {
+	C.gtk_tree_store_move_after(v.native(), iter.native(),
+		position.native())
 }
 
-// TreeIterCompareFunc defines the function prototype for the sort function (f arg) for
-// (* TreeSortable).SetSortFunc
-type TreeIterCompareFunc func(model *TreeModel, a, b *TreeIter, userData interface{}) int
-
-type treeStoreSortFuncData struct {
-	fn       TreeIterCompareFunc
-	userData interface{}
-}
-
-var (
-	treeStoreSortFuncRegistry = struct {
-		sync.RWMutex
-		next int
-		m    map[int]treeStoreSortFuncData
-	}{
-		next: 1,
-		m:    make(map[int]treeStoreSortFuncData),
-	}
-)
-
-func (v *C.GtkTreeSortable) setSortFunc(sortColumn int, f TreeIterCompareFunc, userData ...interface{}) error {
-	if len(userData) > 1 {
-		return errors.New("userData len must be 0 or 1")
-	}
-
-	t := treeStoreSortFuncData{fn: f}
-	if len(userData) > 0 {
-		t.userData = userData[0]
-	}
-	treeStoreSortFuncRegistry.Lock()
-	id := treeStoreSortFuncRegistry.next
-	treeStoreSortFuncRegistry.next++
-	treeStoreSortFuncRegistry.m[id] = t
-	treeStoreSortFuncRegistry.Unlock()
-
-	C._gtk_tree_sortable_set_sort_func(v, C.gint(sortColumn), C.gpointer(uintptr(id)))
-	return nil
+// Swap is a wrapper around gtk_tree_store_swap().
+func (v *TreeStore) Swap(a, b *TreeIter) {
+	C.gtk_tree_store_swap(v.native(), a.native(), b.native())
 }
 
 /*
@@ -9689,20 +10383,33 @@ func ViewportNew(hadjustment, vadjustment *Adjustment) (*Viewport, error) {
 	return wrapViewport(glib.Take(unsafe.Pointer(c))), nil
 }
 
-func (v *Viewport) SetHAdjustment(adjustment *Adjustment) {
-	wrapScrollable(v.Object).SetHAdjustment(adjustment)
+// SetShadowType is a wrapper around gtk_viewport_set_shadow_type().
+func (v *Viewport) SetShadowType(shadowType ShadowType) {
+	C.gtk_viewport_set_shadow_type(v.native(), C.GtkShadowType(shadowType))
 }
 
-func (v *Viewport) GetHAdjustment() (*Adjustment, error) {
-	return wrapScrollable(v.Object).GetHAdjustment()
+// GetShadowType is a wrapper around gtk_viewport_get_shadow_type().
+func (v *Viewport) GetShadowType() ShadowType {
+	c := C.gtk_viewport_get_shadow_type(v.native())
+	return ShadowType(c)
 }
 
-func (v *Viewport) SetVAdjustment(adjustment *Adjustment) {
-	wrapScrollable(v.Object).SetVAdjustment(adjustment)
+// GetBinWindow is a wrapper around gtk_viewport_get_bin_window().
+func (v *Viewport) GetBinWindow() *gdk.Window {
+	c := C.gtk_viewport_get_bin_window(v.native())
+	if c == nil {
+		return nil
+	}
+	return &gdk.Window{glib.Take(unsafe.Pointer(c))}
 }
 
-func (v *Viewport) GetVAdjustment() (*Adjustment, error) {
-	return wrapScrollable(v.Object).GetVAdjustment()
+// GetViewWindow is a wrapper around gtk_viewport_get_view_window().
+func (v *Viewport) GetViewWindow() *gdk.Window {
+	c := C.gtk_viewport_get_view_window(v.native())
+	if c == nil {
+		return nil
+	}
+	return &gdk.Window{glib.Take(unsafe.Pointer(c))}
 }
 
 /*
@@ -9734,7 +10441,7 @@ func wrapVolumeButton(obj *glib.Object) *VolumeButton {
 	return &VolumeButton{ScaleButton{Button{Bin{Container{Widget{glib.InitiallyUnowned{obj}}}}, actionable}}}
 }
 
-// VolumeButtonNew() is a wrapper around gtk_button_new().
+// VolumeButtonNew is a wrapper around gtk_volume_button_new().
 func VolumeButtonNew() (*VolumeButton, error) {
 	c := C.gtk_volume_button_new()
 	if c == nil {
@@ -9830,6 +10537,7 @@ var WrapMap = map[string]WrapFn{
 	"GtkToolItem":             wrapToolItem,
 	"GtkTreeModel":            wrapTreeModel,
 	"GtkTreeModelFilter":      wrapTreeModelFilter,
+	"GtkTreeModelSort":        wrapTreeModelSort,
 	"GtkTreeSelection":        wrapTreeSelection,
 	"GtkTreeStore":            wrapTreeStore,
 	"GtkTreeView":             wrapTreeView,
@@ -9840,38 +10548,121 @@ var WrapMap = map[string]WrapFn{
 	"GtkWindow":               wrapWindow,
 }
 
-// cast takes a native GObject and casts it to the appropriate Go struct.
-//TODO change all wrapFns to return an IObject
-func cast(c *C.GObject) (glib.IObject, error) {
-	var (
-		className = goString(C.object_get_class_name(c))
-		obj       = glib.Take(unsafe.Pointer(c))
-	)
-
+// castInternal casts the given object to the appropriate Go struct, but returns it as interface for later type assertions.
+// The className is the results of C.object_get_class_name(c) called on the native object.
+// The obj is the result of glib.Take(unsafe.Pointer(c)), used as a parameter for the wrapper functions.
+func castInternal(className string, obj *glib.Object) (interface{}, error) {
 	fn, ok := WrapMap[className]
 	if !ok {
 		return nil, errors.New("unrecognized class name '" + className + "'")
 	}
 
+	// Check that the wrapper function is actually a function
 	rf := reflect.ValueOf(fn)
 	if rf.Type().Kind() != reflect.Func {
 		return nil, errors.New("wraper is not a function")
 	}
 
+	// Call the wraper function with the *glib.Object as first parameter
+	// e.g. "wrapWindow(obj)"
 	v := reflect.ValueOf(obj)
 	rv := rf.Call([]reflect.Value{v})
 
+	// At most/max 1 return value
 	if len(rv) != 1 {
 		return nil, errors.New("wrapper did not return")
 	}
 
+	// Needs to be a pointer of some sort
 	if k := rv[0].Kind(); k != reflect.Ptr {
 		return nil, fmt.Errorf("wrong return type %s", k)
 	}
 
-	ret, ok := rv[0].Interface().(glib.IObject)
+	// Only get an interface value, type check will be done in more specific functions
+	return rv[0].Interface(), nil
+}
+
+// cast takes a native GObject and casts it to the appropriate Go struct.
+//TODO change all wrapFns to return an IObject
+//^- not sure about this TODO. This may make some usages of the wrapper functions quite verbose, no?
+func cast(c *C.GObject) (glib.IObject, error) {
+	ptr := unsafe.Pointer(c)
+	var (
+		className = goString(C.object_get_class_name(C.toGObject(ptr)))
+		obj       = glib.Take(ptr)
+	)
+
+	intf, err := castInternal(className, obj)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := intf.(glib.IObject)
 	if !ok {
 		return nil, errors.New("did not return an IObject")
+	}
+
+	return ret, nil
+}
+
+// castWidget takes a native GtkWidget and casts it to the appropriate Go struct.
+func castWidget(c *C.GtkWidget) (IWidget, error) {
+	ptr := unsafe.Pointer(c)
+	var (
+		className = goString(C.object_get_class_name(C.toGObject(ptr)))
+		obj       = glib.Take(ptr)
+	)
+
+	intf, err := castInternal(className, obj)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := intf.(IWidget)
+	if !ok {
+		return nil, fmt.Errorf("expected value of type IWidget, got %T", intf)
+	}
+
+	return ret, nil
+}
+
+// castCellRenderer takes a native GtkCellRenderer and casts it to the appropriate Go struct.
+func castCellRenderer(c *C.GtkCellRenderer) (ICellRenderer, error) {
+	ptr := unsafe.Pointer(c)
+	var (
+		className = goString(C.object_get_class_name(C.toGObject(ptr)))
+		obj       = glib.Take(ptr)
+	)
+
+	intf, err := castInternal(className, obj)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := intf.(ICellRenderer)
+	if !ok {
+		return nil, fmt.Errorf("expected value of type ICellRenderer, got %T", intf)
+	}
+
+	return ret, nil
+}
+
+// castTreeModel takes a native GtkCellTreeModel and casts it to the appropriate Go struct.
+func castTreeModel(c *C.GtkTreeModel) (ITreeModel, error) {
+	ptr := unsafe.Pointer(c)
+	var (
+		className = goString(C.object_get_class_name(C.toGObject(ptr)))
+		obj       = glib.Take(ptr)
+	)
+
+	intf, err := castInternal(className, obj)
+	if err != nil {
+		return nil, err
+	}
+
+	ret, ok := intf.(ITreeModel)
+	if !ok {
+		return nil, fmt.Errorf("expected value of type ITreeModel, got %T", intf)
 	}
 
 	return ret, nil

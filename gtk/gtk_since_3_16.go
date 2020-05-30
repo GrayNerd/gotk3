@@ -4,24 +4,26 @@
 
 package gtk
 
-// #include <stdlib.h>
 // #include <gtk/gtk.h>
 // #include "gtk_since_3_16.go.h"
 import "C"
 import (
+	"sync"
 	"unsafe"
 
+	"github.com/gotk3/gotk3/gdk"
 	"github.com/gotk3/gotk3/glib"
 )
 
-const(
-	POLICY_EXTERNAL  PolicyType = C.GTK_POLICY_EXTERNAL
+const (
+	POLICY_EXTERNAL PolicyType = C.GTK_POLICY_EXTERNAL
 )
 
 func init() {
 	tm := []glib.TypeMarshaler{
 
 		// Objects/Interfaces
+		{glib.Type(C.gtk_button_role_get_type()), marshalButtonRole},
 		{glib.Type(C.gtk_popover_menu_get_type()), marshalPopoverMenu},
 		{glib.Type(C.gtk_model_button_get_type()), marshalModelButton},
 		{glib.Type(C.gtk_stack_sidebar_get_type()), marshalStackSidebar},
@@ -38,6 +40,68 @@ func init() {
 	}
 }
 
+/*
+ * Constants
+ */
+
+// ButtonRole is a representation of GTK's GtkButtonRole.
+type ButtonRole int
+
+const (
+	BUTTON_ROLE_NORMAL ButtonRole = C.GTK_BUTTON_ROLE_NORMAL
+	BUTTON_ROLE_CHECK  ButtonRole = C.GTK_BUTTON_ROLE_CHECK
+	BUTTON_ROLE_RADIO  ButtonRole = C.GTK_BUTTON_ROLE_RADIO
+)
+
+func marshalButtonRole(p uintptr) (interface{}, error) {
+	c := C.g_value_get_enum((*C.GValue)(unsafe.Pointer(p)))
+	return ButtonRole(c), nil
+}
+
+/*
+ * GtkStack
+ */
+
+// TODO:
+// gtk_stack_set_hhomogeneous().
+// gtk_stack_get_hhomogeneous().
+// gtk_stack_set_vhomogeneous().
+// gtk_stack_get_vhomogeneous().
+
+/*
+ * GtkNotebook
+ */
+
+// TODO:
+// gtk_notebook_detach_tab().
+
+/*
+ * GtkListBox
+ */
+
+// ListBoxCreateWidgetFunc is a representation of GtkListBoxCreateWidgetFunc.
+type ListBoxCreateWidgetFunc func(item interface{}, userData ...interface{}) int
+
+type listBoxCreateWidgetFuncData struct {
+	fn       ListBoxCreateWidgetFunc
+	userData []interface{}
+}
+
+var (
+	listBoxCreateWidgetFuncRegistry = struct {
+		sync.RWMutex
+		next int
+		m    map[int]listBoxCreateWidgetFuncData
+	}{
+		next: 1,
+		m:    make(map[int]listBoxCreateWidgetFuncData),
+	}
+)
+
+/*
+ * GtkScrolledWindow
+ */
+
 // SetOverlayScrolling is a wrapper around gtk_scrolled_window_set_overlay_scrolling().
 func (v *ScrolledWindow) SetOverlayScrolling(scrolling bool) {
 	C.gtk_scrolled_window_set_overlay_scrolling(v.native(), gbool(scrolling))
@@ -48,6 +112,10 @@ func (v *ScrolledWindow) GetOverlayScrolling() bool {
 	return gobool(C.gtk_scrolled_window_get_overlay_scrolling(v.native()))
 }
 
+/*
+ * GtkPaned
+ */
+
 // SetWideHandle is a wrapper around gtk_paned_set_wide_handle().
 func (v *Paned) SetWideHandle(wide bool) {
 	C.gtk_paned_set_wide_handle(v.native(), gbool(wide))
@@ -57,6 +125,10 @@ func (v *Paned) SetWideHandle(wide bool) {
 func (v *Paned) GetWideHandle() bool {
 	return gobool(C.gtk_paned_get_wide_handle(v.native()))
 }
+
+/*
+ * GtkLabel
+ */
 
 // GetXAlign is a wrapper around gtk_label_get_xalign().
 func (v *Label) GetXAlign() float64 {
@@ -82,40 +154,40 @@ func (v *Label) SetYAlign(n float64) {
 
 /*
 * GtkModelButton
-*/
+ */
 
 // ModelButton is a representation of GTK's GtkModelButton.
 type ModelButton struct {
 	Button
- }
- 
- func (v *ModelButton) native() *C.GtkModelButton {
-	 if v == nil || v.GObject == nil {
-		 return nil
-	 }
- 
-	 p := unsafe.Pointer(v.GObject)
-	 return C.toGtkModelButton(p)
- }
- 
- func marshalModelButton(p uintptr) (interface{}, error) {
-	 c := C.g_value_get_object((*C.GValue)(unsafe.Pointer(p)))
-	 return wrapModelButton(glib.Take(unsafe.Pointer(c))), nil
- }
- 
- func wrapModelButton(obj *glib.Object) *ModelButton {
-	 actionable := wrapActionable(obj)
-	 return &ModelButton{Button{Bin{Container{Widget{glib.InitiallyUnowned{obj}}}}, actionable}}
- }
- 
- // ModelButtonNew is a wrapper around gtk_model_button_new
- func ModelButtonNew() (*ModelButton, error) {
-	 c := C.gtk_model_button_new()
-	 if c == nil {
-		 return nil, nilPtrErr
-	 }
-	 return wrapModelButton(glib.Take(unsafe.Pointer(c))), nil
- }
+}
+
+func (v *ModelButton) native() *C.GtkModelButton {
+	if v == nil || v.GObject == nil {
+		return nil
+	}
+
+	p := unsafe.Pointer(v.GObject)
+	return C.toGtkModelButton(p)
+}
+
+func marshalModelButton(p uintptr) (interface{}, error) {
+	c := C.g_value_get_object((*C.GValue)(unsafe.Pointer(p)))
+	return wrapModelButton(glib.Take(unsafe.Pointer(c))), nil
+}
+
+func wrapModelButton(obj *glib.Object) *ModelButton {
+	actionable := wrapActionable(obj)
+	return &ModelButton{Button{Bin{Container{Widget{glib.InitiallyUnowned{obj}}}}, actionable}}
+}
+
+// ModelButtonNew is a wrapper around gtk_model_button_new
+func ModelButtonNew() (*ModelButton, error) {
+	c := C.gtk_model_button_new()
+	if c == nil {
+		return nil, nilPtrErr
+	}
+	return wrapModelButton(glib.Take(unsafe.Pointer(c))), nil
+}
 
 /*
  * GtkPopoverMenu
@@ -198,10 +270,12 @@ func StackSidebarNew() (*StackSidebar, error) {
 	return wrapStackSidebar(glib.Take(unsafe.Pointer(c))), nil
 }
 
+// SetStack is a wrapper around gtk_stack_sidebar_set_stack().
 func (v *StackSidebar) SetStack(stack *Stack) {
 	C.gtk_stack_sidebar_set_stack(v.native(), stack.native())
 }
 
+// GetStack is a wrapper around gtk_stack_sidebar_get_stack().
 func (v *StackSidebar) GetStack() *Stack {
 	c := C.gtk_stack_sidebar_get_stack(v.native())
 	if c == nil {
@@ -210,14 +284,45 @@ func (v *StackSidebar) GetStack() *Stack {
 	return wrapStack(glib.Take(unsafe.Pointer(c)))
 }
 
+/*
+ * GtkEntry
+ */
+
 // GrabFocusWithoutSelecting is a wrapper for gtk_entry_grab_focus_without_selecting()
 func (v *Entry) GrabFocusWithoutSelecting() {
 	C.gtk_entry_grab_focus_without_selecting(v.native())
 }
 
-// InsertMarkup() is a wrapper around  gtk_text_buffer_insert_markup()
+/*
+ * GtkSearchEntry
+ */
+
+// HandleEvent is a wrapper around gtk_search_entry_handle_event().
+func (v *SearchEntry) HandleEvent(event *gdk.Event) {
+	e := (*C.GdkEvent)(unsafe.Pointer(event.Native()))
+	C.gtk_search_entry_handle_event(v.native(), e)
+}
+
+/*
+ * GtkTextBuffer
+ */
+
+// InsertMarkup is a wrapper around  gtk_text_buffer_insert_markup()
 func (v *TextBuffer) InsertMarkup(start *TextIter, text string) {
 	cstr := C.CString(text)
 	defer C.free(unsafe.Pointer(cstr))
 	C.gtk_text_buffer_insert_markup(v.native(), (*C.GtkTextIter)(start), (*C.gchar)(cstr), C.gint(len(text)))
+}
+
+/*
+ * CssProvider
+ */
+
+// LoadFromResource is a wrapper around gtk_css_provider_load_from_resource().
+//
+// See: https://developer.gnome.org/gtk3/stable/GtkCssProvider.html#gtk-css-provider-load-from-resource
+func (v *CssProvider) LoadFromResource(path string) {
+	cpath := C.CString(path)
+	defer C.free(unsafe.Pointer(cpath))
+	C.gtk_css_provider_load_from_resource(v.native(), (*C.gchar)(cpath))
 }
